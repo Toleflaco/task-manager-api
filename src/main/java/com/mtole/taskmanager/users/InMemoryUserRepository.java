@@ -1,0 +1,54 @@
+package com.mtole.taskmanager.users;
+
+import org.springframework.stereotype.Repository;
+
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+
+@Repository
+public class InMemoryUserRepository implements UserRepository{
+    private final Map<Long, User> users = new ConcurrentHashMap<>();
+    private final AtomicLong counter = new AtomicLong();
+
+    public InMemoryUserRepository() {}
+    @Override
+    public User save(User user) {
+        if (user.getId() == null) {
+            user.setId(counter.incrementAndGet());
+        }
+        if (user.getCreatedAt() == null) {
+            user.setCreatedAt(LocalDateTime.now());
+        }
+
+        users.put(user.getId(),user);
+        return user;
+    }
+
+    @Override
+    public Optional<User> findById(Long id) {
+        return Optional.ofNullable(users.get(id));
+    }
+
+    @Override
+    public List<User> findAll(int page, int pageSize) {
+        return users.values().stream()
+                .skip((long) page*pageSize)
+                .limit(pageSize)
+                .toList();
+    }
+
+    @Override
+    public int countAll() {
+        return users.size();
+    }
+
+    @Override
+    public boolean deleteById(Long id) {
+        return users.remove(id) != null; // true si había algo, false si no
+    }
+}

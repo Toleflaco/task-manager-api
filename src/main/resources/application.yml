@@ -4,3 +4,6 @@ server:
 spring:
   application:
     name: task-manager-api
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%X{requestId}] %logger{36} - %msg%n"
