@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -39,7 +40,17 @@ public class GlobalExceptionHandler {
         pd.setProperty("timestamp", LocalDateTime.now());
         return pd;
     }
-
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ProblemDetail handleMissingHeader(MissingRequestHeaderException ex) {
+        log.warn("Missing required header: {}", ex.getHeaderName());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Required header '" + ex.getHeaderName() + "' is missing"
+        );
+        pd.setTitle("Missing Required Header");
+        pd.setProperty("timestamp", LocalDateTime.now());
+        return pd;
+    }
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleException(Exception ex) {
         //log.error("Error not controlled");

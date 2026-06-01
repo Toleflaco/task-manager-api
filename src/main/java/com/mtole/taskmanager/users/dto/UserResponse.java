@@ -1,0 +1,17 @@
+package com.mtole.taskmanager.users.dto;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+
+import java.time.LocalDateTime;
+
+public record UserResponse(
+        @Schema(description = "User id", example = "32")
+        Long id,
+        @Schema(description = "User name", example = "Juan Mendoza")
+        String name,
+        @Schema(description = "User email", example= "juan.mendoza@mendoza.es")
+        String email,
+        @Schema(description = "User creation date", example = "2026-01-15T10:30:00")
+        LocalDateTime createdAt
+) {
+}
