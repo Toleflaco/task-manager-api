@@ -1,0 +1,134 @@
+package com.mtole.taskmanager.tasks;
+
+import com.mtole.taskmanager.categories.Category;
+import com.mtole.taskmanager.categories.dto.CategoryResponse;
+import com.mtole.taskmanager.common.ResourceNotFoundException;
+import com.mtole.taskmanager.common.dto.PagedResponse;
+import com.mtole.taskmanager.tasks.dto.TaskCreateRequest;
+import com.mtole.taskmanager.tasks.dto.TaskResponse;
+import com.mtole.taskmanager.tasks.dto.TaskUpdateRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/tasks")
+@Tag(name = "Tasks", description = "CRUD task")
+public class TaskController {
+    private final TaskService taskService;
+    private final TaskMapper taskMapper;
+
+    public TaskController(TaskService taskService, TaskMapper taskMapper) {
+        this.taskService = taskService;
+        this.taskMapper = taskMapper;
+    }
+
+    @Operation(summary = "Create a new task", description = "Create a new task with an unique title")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Task created"),
+            @ApiResponse(responseCode = "400", description = "Invalid input data", content = @Content)
+    })
+    @PostMapping
+    public ResponseEntity<TaskResponse> addTask(@RequestHeader("X-User-Id") Long currentUserId,
+                                                @Valid @RequestBody TaskCreateRequest request) {
+        Task created = taskService.create(request, currentUserId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(taskMapper.toResponse(created));
+    }
+
+    @Operation(summary = "Update a task", description = "Update task with id")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Task updated"),
+            @ApiResponse(responseCode = "400", description = "Invalid input data")
+    })
+    @PutMapping("/{id}")
+    public TaskResponse updateTaskById(@RequestHeader("X-User-Id") Long currentUserId,
+                                       @PathVariable Long id,
+                                       @Valid @RequestBody TaskUpdateRequest request) {
+
+        return taskMapper.toResponse(taskService.update(id, request, currentUserId));
+    }
+
+    @Operation(summary = "Delete task", description = "Delete task with id")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Task deleted"),
+            @ApiResponse(responseCode = "404", description = "Task not found")
+    })
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTaskById(@RequestHeader("X-User-Id") Long currentUserId, @PathVariable Long id) {
+        if (!taskService.deleteById(id, currentUserId)) {
+            throw new ResourceNotFoundException("Task with id=" + id + " not found");
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Complete task", description = "Complete the task with id")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Task successfully marked as completed"),
+            @ApiResponse(responseCode = "404", description = "Task not found or not owned by current user"),
+            @ApiResponse(responseCode = "409", description = "Invalid state transition")
+    })
+    @PostMapping("/{id}/complete")
+    public TaskResponse completeTaskById(@RequestHeader("X-User-Id") Long currentUserId,
+                                         @PathVariable Long id) {
+        Task updated = taskService.complete(id, currentUserId);
+        return taskMapper.toResponse(updated);
+    }
+
+    @Operation(summary = "Cancel task", description = "Cancel the task with id")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Task successfully marked as cancelled"),
+            @ApiResponse(responseCode = "404", description = "Task not found or not owned by current user"),
+            @ApiResponse(responseCode = "409", description = "Invalid state transition")
+    })
+    @PostMapping("/{id}/cancel")
+    public TaskResponse cancelTaskById(@RequestHeader("X-User-Id") Long currentUserId,
+                                       @PathVariable Long id) {
+        Task updated = taskService.cancel(id, currentUserId);
+        return taskMapper.toResponse(updated);
+    }
+
+    @Operation(summary = "Search for a task by ID", description = "Searches for a task by ID; if it is not found, it returns an exception")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Task found"),
+            @ApiResponse(responseCode = "404", description = "Task not found", content = @Content)
+    })
+    @GetMapping("/{id}")
+    public TaskResponse findTaskById(@RequestHeader("X-User-Id") Long currentUserId, @PathVariable Long id) {
+        return taskService.findById(id, currentUserId)
+                .map(taskMapper::toResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("Task with id=" + id + " not found"));
+    }
+
+    @Operation(summary = "List all tasks for currentUserId", description = "List all tasks by page")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Paginated list of tasks for the current user"),
+            @ApiResponse(responseCode = "400", description = "Invalid query parameter", content = @Content)
+    })
+    @GetMapping
+    public PagedResponse<TaskResponse> findAll(@RequestHeader("X-User-Id") Long currentUserId,
+                                               @RequestParam(required = false) TaskStatus status,
+                                               @RequestParam(required = false) Priority priority,
+                                               @RequestParam(required = false) Long categoryId,
+                                               @RequestParam(defaultValue = "0") int page,
+                                               @RequestParam(defaultValue = "20") int pageSize) {
+        TaskFilter filter = new TaskFilter(status, priority, categoryId);
+        List<Task> tasks = taskService.findAll(currentUserId, filter, page, pageSize);
+        int totalElements = taskService.countAll(currentUserId, filter);
+        List<TaskResponse> tasksResponse = tasks.stream()
+                .map(taskMapper::toResponse)
+                .toList();
+
+        return new PagedResponse<>(tasksResponse, page, pageSize, totalElements);
+    }
+
+}
+

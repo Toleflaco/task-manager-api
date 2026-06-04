@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Repository
-public class InMemoryCategoryRepository implements CategoryRepository{
+public class InMemoryCategoryRepository implements CategoryRepository {
 
     private final Map<Long, Category> categories = new ConcurrentHashMap<>();
     private final AtomicLong counter = new AtomicLong();
@@ -23,7 +23,7 @@ public class InMemoryCategoryRepository implements CategoryRepository{
         if (category.getCreatedAt() == null) {
             category.setCreatedAt(LocalDateTime.now());
         }
-        categories.put(category.getId(),category);
+        categories.put(category.getId(), category);
         return category;
     }
 
@@ -37,7 +37,7 @@ public class InMemoryCategoryRepository implements CategoryRepository{
     public List<Category> findAllByUserId(Long userId, int page, int pageSize) {
         return categories.values().stream()
                 .filter(category -> category.getUserId().equals(userId))
-                .skip((long) page*pageSize)
+                .skip((long) page * pageSize)
                 .limit(pageSize)
                 .toList();
     }
@@ -52,5 +52,12 @@ public class InMemoryCategoryRepository implements CategoryRepository{
     @Override
     public boolean deleteByIdAndUserId(Long id, Long userId) {
         return categories.values().removeIf(category -> category.getUserId().equals(userId) && category.getId().equals(id));
+    }
+
+    @Override
+    public int deleteAllByUserId(Long userId) {
+        int sizeBefore = categories.size();
+        categories.values().removeIf(category -> userId.equals(category.getUserId()));
+        return sizeBefore - categories.size();
     }
 }

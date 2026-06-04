@@ -9,4 +9,5 @@ public interface CategoryRepository {
     List<Category> findAllByUserId(Long userId, int page, int pageSize);
     int countByUserId(Long userId);
     boolean deleteByIdAndUserId(Long id, Long userId);
+    int deleteAllByUserId(Long userId);
 }

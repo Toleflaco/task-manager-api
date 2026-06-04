@@ -31,14 +31,14 @@ public class InMemoryTaskRepository implements TaskRepository {
     @Override
     public Optional<Task> findByIdAndUserId(Long id, Long userId) {
         return Optional.ofNullable(tasks.get(id))
-                .filter(task ->task.getUserId().equals(userId));
+                .filter(task -> task.getUserId().equals(userId));
     }
 
     @Override
     public List<Task> findAllByUserId(Long userId, TaskFilter filter, int page, int pageSize) {
         return tasks.values().stream()
-                .filter(t-> matchesFilter(t,userId,filter))
-                .skip((long) page*pageSize)
+                .filter(t -> matchesFilter(t, userId, filter))
+                .skip((long) page * pageSize)
                 .limit(pageSize)
                 .toList();
     }
@@ -46,24 +46,31 @@ public class InMemoryTaskRepository implements TaskRepository {
     @Override
     public int countByUserId(Long userId, TaskFilter filter) {
         return (int) tasks.values().stream()
-                .filter(t->matchesFilter(t,userId,filter))
+                .filter(t -> matchesFilter(t, userId, filter))
                 .count();
     }
 
     @Override
     public boolean deleteByIdAndUserId(Long id, Long userId) {
-        return tasks.values().removeIf(task -> task.getUserId().equals(userId)&&task.getId().equals(id));
+        return tasks.values().removeIf(task -> task.getUserId().equals(userId) && task.getId().equals(id));
+    }
+
+    @Override
+    public int deleteAllByUserId(Long userId) {
+        int sizeBefore = tasks.size();
+        tasks.values().removeIf(task->userId.equals(task.getUserId()));
+        return sizeBefore-tasks.size();
     }
 
     private boolean matchesFilter(Task t, Long userId, TaskFilter filter) {
 
-       if (!t.getUserId().equals(userId)) return false;
+        if (!t.getUserId().equals(userId)) return false;
 
-       if (filter.status()!=null && t.getStatus() != filter.status()) return false;
-       if (filter.priority()!=null && t.getPriority() != filter.priority()) return false;
-       if (filter.categoryId()!=null && !t.getCategoryId().equals(filter.categoryId())) return false;
+        if (filter.status() != null && !filter.status().equals(t.getStatus())) return false;
+        if (filter.priority() != null && !filter.priority().equals(t.getPriority())) return false;
+        if (filter.categoryId() != null && !filter.categoryId().equals(t.getCategoryId())) return false;
 
-       return true;
+        return true;
     }
 
 }

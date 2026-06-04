@@ -1,5 +1,6 @@
 package com.mtole.taskmanager.common;
 
+import com.mtole.taskmanager.tasks.InvalidTaskStateException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -8,6 +9,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.net.URI;
 import java.time.LocalDateTime;
@@ -50,6 +52,25 @@ public class GlobalExceptionHandler {
         pd.setTitle("Missing Required Header");
         pd.setProperty("timestamp", LocalDateTime.now());
         return pd;
+    }
+    @ExceptionHandler(InvalidTaskStateException.class)
+    public ProblemDetail handleInvalidTaskStateException(InvalidTaskStateException ex) {
+        log.warn("Invalid task state: {}", ex.getMessage());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setTitle("Invalid Task State");
+        pd.setProperty("timestamp", LocalDateTime.now());
+        return pd;
+    }
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        log.warn("Invalid value for parameter '{}': {}", ex.getName(), ex.getValue());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Parameter '" + ex.getName() + "' has an invalid value. Expected type: " + ex.getRequiredType().getSimpleName());
+        pd.setTitle("Invalid Query Parameter");
+        pd.setProperty("timestamp", LocalDateTime.now());
+        return pd;
+
     }
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleException(Exception ex) {

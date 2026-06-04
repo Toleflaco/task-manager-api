@@ -51,4 +51,9 @@ public class InMemoryUserRepository implements UserRepository{
     public boolean deleteById(Long id) {
         return users.remove(id) != null; // true si había algo, false si no
     }
+
+    @Override
+    public boolean existsById(Long id) {
+        return users.containsKey(id);
+    }
 }

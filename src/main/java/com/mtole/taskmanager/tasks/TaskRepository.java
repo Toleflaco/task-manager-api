@@ -10,4 +10,6 @@ public interface TaskRepository {
     List<Task> findAllByUserId(Long userId, TaskFilter filter, int page, int pageSize);
     int countByUserId(Long userId, TaskFilter filter);
     boolean deleteByIdAndUserId(Long id, Long userId);
+    int deleteAllByUserId(Long userId);
+
 }

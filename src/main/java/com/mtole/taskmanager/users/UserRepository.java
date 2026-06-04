@@ -9,4 +9,5 @@ public interface UserRepository {
     List<User> findAll(int page, int pageSize);
     int countAll();
     boolean deleteById(Long id);
+    boolean existsById(Long id);
 }

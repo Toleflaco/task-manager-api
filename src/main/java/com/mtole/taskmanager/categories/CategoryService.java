@@ -20,21 +20,21 @@ public class CategoryService {
         this.categoryMapper = categoryMapper;
     }
 
-    public Category create(CategoryCreateRequest req, Long currentUserId) {
-        log.info("Creating category with name={}", req.name());
-        Category entity = categoryMapper.toEntity(req);
+    public Category create(CategoryCreateRequest request, Long currentUserId) {
+        log.info("Creating category with name={}", request.name());
+        Category entity = categoryMapper.toEntity(request);
         entity.setUserId(currentUserId);
         Category saved = categoryRepository.save(entity);
         log.info("Created category with id={}", saved.getId());
         return saved;
     }
 
-    public Category update(Long id, CategoryCreateRequest req, Long currentUserId){
+    public Category update(Long id, CategoryCreateRequest request, Long currentUserId) {
         log.info("Updating category with id={}", id);
         Category existing = categoryRepository.findByIdAndUserId(id, currentUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Category with id=" + id + " not found!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Category with id=" + id + " not found"));
 
-        categoryMapper.updateFromRequest(req, existing);
+        categoryMapper.updateFromRequest(request, existing);
         Category saved = categoryRepository.save(existing);
         log.info("Updated category with id={}", saved.getId());
         return saved;
@@ -60,7 +60,7 @@ public class CategoryService {
         if (deleted) {
             log.info("Deleted category id={}", id);
         } else {
-            log.warn("Category with id={} could not be deleted", id);
+            log.warn("Category with id={} not found or not owned by user={}", id, currentUserId);
         }
         return deleted;
     }
