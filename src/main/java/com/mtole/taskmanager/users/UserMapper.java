@@ -11,6 +11,7 @@ unmappedTargetPolicy = ReportingPolicy.ERROR)
 public interface UserMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target ="password", ignore = true)
     User toEntity(UserCreateRequest request);
     UserResponse toResponse(User user);
 }

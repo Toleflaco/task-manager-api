@@ -10,4 +10,5 @@ public interface UserRepository {
     int countAll();
     boolean deleteById(Long id);
     boolean existsById(Long id);
+    Optional<User> findByEmail(String email);
 }

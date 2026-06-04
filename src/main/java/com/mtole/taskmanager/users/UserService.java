@@ -2,8 +2,10 @@ package com.mtole.taskmanager.users;
 
 import com.mtole.taskmanager.categories.CategoryRepository;
 import com.mtole.taskmanager.tasks.TaskRepository;
+import com.mtole.taskmanager.users.dto.UserCreateRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -16,17 +18,21 @@ public class UserService {
     private final CategoryRepository categoryRepository;
     private final TaskRepository taskRepository;
     private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;
 
     public UserService(UserRepository userRepository, CategoryRepository categoryRepository, TaskRepository taskRepository,
-                       UserMapper userMapper) {
+                       UserMapper userMapper, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
         this.taskRepository = taskRepository;
         this.userMapper = userMapper;
+        this.passwordEncoder = passwordEncoder;
     }
-    public User createUser(User user){
-        log.info("Creating user with email={}", user.getEmail());
-        User createdUser = userRepository.save(user);
+    public User create(UserCreateRequest request){
+        log.info("Creating user with email={}", request.email());
+        User entity = userMapper.toEntity(request);
+        entity.setPassword(passwordEncoder.encode(request.password()));
+        User createdUser = userRepository.save(entity);
         log.info("Created user with id={}", createdUser.getId());
         return createdUser;
     }

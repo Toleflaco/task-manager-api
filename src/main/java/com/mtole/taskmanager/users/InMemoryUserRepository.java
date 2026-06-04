@@ -3,7 +3,6 @@ package com.mtole.taskmanager.users;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -11,11 +10,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Repository
-public class InMemoryUserRepository implements UserRepository{
+public class InMemoryUserRepository implements UserRepository {
     private final Map<Long, User> users = new ConcurrentHashMap<>();
     private final AtomicLong counter = new AtomicLong();
 
-    public InMemoryUserRepository() {}
+    public InMemoryUserRepository() {
+    }
+
     @Override
     public User save(User user) {
         if (user.getId() == null) {
@@ -25,7 +26,7 @@ public class InMemoryUserRepository implements UserRepository{
             user.setCreatedAt(LocalDateTime.now());
         }
 
-        users.put(user.getId(),user);
+        users.put(user.getId(), user);
         return user;
     }
 
@@ -37,7 +38,7 @@ public class InMemoryUserRepository implements UserRepository{
     @Override
     public List<User> findAll(int page, int pageSize) {
         return users.values().stream()
-                .skip((long) page*pageSize)
+                .skip((long) page * pageSize)
                 .limit(pageSize)
                 .toList();
     }
@@ -55,5 +56,12 @@ public class InMemoryUserRepository implements UserRepository{
     @Override
     public boolean existsById(Long id) {
         return users.containsKey(id);
+    }
+
+    @Override
+    public Optional<User> findByEmail(String email) {
+        return(users.values().stream()
+                .filter(user -> email.equalsIgnoreCase(user.getEmail()))
+                .findFirst());
     }
 }
