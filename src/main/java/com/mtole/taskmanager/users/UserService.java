@@ -29,6 +29,9 @@ public class UserService {
     }
     public User create(UserCreateRequest request){
         log.info("Creating user with email={}", request.email());
+        if (userRepository.existsByEmail(request.email())) {
+            throw new DuplicateEmailException("Email already registered: " + request.email());
+        }
         User entity = userMapper.toEntity(request);
         entity.setPassword(passwordEncoder.encode(request.password()));
         User createdUser = userRepository.save(entity);

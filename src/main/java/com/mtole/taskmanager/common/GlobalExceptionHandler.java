@@ -1,11 +1,13 @@
 package com.mtole.taskmanager.common;
 
 import com.mtole.taskmanager.tasks.InvalidTaskStateException;
+import com.mtole.taskmanager.users.DuplicateEmailException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -82,6 +84,31 @@ public class GlobalExceptionHandler {
                 "Invalid email or password"
         );
         pd.setTitle("Authentication failed");
+        pd.setProperty("timestamp", LocalDateTime.now());
+        return pd;
+    }
+
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ProblemDetail handleUnsupportedMediaType(HttpMediaTypeNotSupportedException ex) {
+        log.warn("Unsupported media type: {}", ex.getContentType());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                "Content-Type '" + ex.getContentType() + "' is not supported. Use application/json."
+        );
+        pd.setTitle("Unsupported Media Type");
+        pd.setProperty("timestamp", LocalDateTime.now());
+        return pd;
+    }
+
+    @ExceptionHandler(DuplicateEmailException.class)
+    public ProblemDetail handleDuplicateEmail(DuplicateEmailException ex) {
+        log.warn("Duplicate email registration attempt: {}", ex.getMessage());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                ex.getMessage()
+        );
+        pd.setTitle("Email already registered");
         pd.setProperty("timestamp", LocalDateTime.now());
         return pd;
     }

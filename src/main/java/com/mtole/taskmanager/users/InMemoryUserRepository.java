@@ -35,7 +35,7 @@ public class InMemoryUserRepository implements UserRepository {
         return Optional.ofNullable(users.get(id));
     }
 
-   
+
     @Override
     public boolean deleteById(Long id) {
         return users.remove(id) != null; // true si había algo, false si no
@@ -51,5 +51,11 @@ public class InMemoryUserRepository implements UserRepository {
         return(users.values().stream()
                 .filter(user -> email.equalsIgnoreCase(user.getEmail()))
                 .findFirst());
+    }
+
+    @Override
+    public boolean existsByEmail(String email) {
+        return users.values().stream()
+                .anyMatch(user -> email.equalsIgnoreCase(user.getEmail()));
     }
 }
