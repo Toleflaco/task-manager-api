@@ -3,6 +3,7 @@ package com.mtole.taskmanager.categories;
 import com.mtole.taskmanager.categories.dto.CategoryCreateRequest;
 import com.mtole.taskmanager.categories.dto.CategoryResponse;
 import com.mtole.taskmanager.common.ResourceNotFoundException;
+import com.mtole.taskmanager.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -34,7 +35,8 @@ public class CategoryController {
             @ApiResponse(responseCode = "400", description = "Invalid input data", content = @Content)
     })
     @PostMapping
-    public ResponseEntity<CategoryResponse> addCategory(@RequestHeader("X-User-Id") Long currentUserId, @Valid @RequestBody CategoryCreateRequest request) {
+    public ResponseEntity<CategoryResponse> addCategory(@Valid @RequestBody CategoryCreateRequest request) {
+        Long currentUserId = SecurityUtils.currentUserId();
         Category created = categoryService.create(request, currentUserId);
         return ResponseEntity.status(HttpStatus.CREATED).body(categoryMapper.toResponse(created));
     }
@@ -45,7 +47,8 @@ public class CategoryController {
             @ApiResponse(responseCode = "400", description = "Header not valid", content = @Content)
     })
     @GetMapping
-    public Map<String, Object> findAll(@RequestHeader("X-User-Id") Long currentUserId, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int pageSize) {
+    public Map<String, Object> findAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int pageSize) {
+        Long currentUserId = SecurityUtils.currentUserId();
         List<Category> categories = categoryService.findAll(currentUserId, page, pageSize);
         List<CategoryResponse> categoriesResponse = categories.stream().map(categoryMapper::toResponse)
                 .toList();
@@ -66,7 +69,8 @@ public class CategoryController {
             @ApiResponse(responseCode = "404", description = "Category not found", content = @Content)
     })
     @GetMapping("/{id}")
-    public CategoryResponse findCategoryById(@RequestHeader("X-User-Id") Long currentUserId, @PathVariable Long id) {
+    public CategoryResponse findCategoryById(@PathVariable Long id) {
+        Long currentUserId = SecurityUtils.currentUserId();
         return categoryService.findById(id, currentUserId)
                 .map(categoryMapper::toResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with id " + id));
@@ -78,10 +82,9 @@ public class CategoryController {
             @ApiResponse(responseCode = "404", description = "Category not update", content = @Content)
     })
     @PutMapping("/{id}")
-    public CategoryResponse updateCategoryById(@RequestHeader("X-User-Id") Long currentUserId,
-                                               @PathVariable Long id,
+    public CategoryResponse updateCategoryById(@PathVariable Long id,
                                                @Valid @RequestBody CategoryCreateRequest request) {
-
+        Long currentUserId = SecurityUtils.currentUserId();
         return categoryMapper.toResponse(categoryService.update(id, request, currentUserId));
     }
 
@@ -91,7 +94,8 @@ public class CategoryController {
             @ApiResponse(responseCode = "404", description = "The category could not be deleted", content = @Content)
     })
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCategoryById(@RequestHeader("X-User-Id") Long currentUserId, @PathVariable Long id) {
+    public ResponseEntity<Void> deleteCategoryById(@PathVariable Long id) {
+        Long currentUserId = SecurityUtils.currentUserId();
         if (!categoryService.deleteById(id, currentUserId)) {
             throw new ResourceNotFoundException("Category not found with id " + id);
         }

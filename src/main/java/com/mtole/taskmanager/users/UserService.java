@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -36,14 +35,9 @@ public class UserService {
         log.info("Created user with id={}", createdUser.getId());
         return createdUser;
     }
-    public Optional<User> findById(Long id){
+
+    public Optional<User> findById(Long id) {
         return userRepository.findById(id);
-    }
-    public List<User> findAll(int page, int pageSize){
-        return userRepository.findAll(page, pageSize);
-    }
-    public int countAll() {
-        return userRepository.countAll();
     }
     public boolean deleteById(Long id) {
         if (!userRepository.existsById(id)) {

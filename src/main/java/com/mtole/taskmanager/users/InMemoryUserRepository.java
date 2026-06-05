@@ -35,19 +35,7 @@ public class InMemoryUserRepository implements UserRepository {
         return Optional.ofNullable(users.get(id));
     }
 
-    @Override
-    public List<User> findAll(int page, int pageSize) {
-        return users.values().stream()
-                .skip((long) page * pageSize)
-                .limit(pageSize)
-                .toList();
-    }
-
-    @Override
-    public int countAll() {
-        return users.size();
-    }
-
+   
     @Override
     public boolean deleteById(Long id) {
         return users.remove(id) != null; // true si había algo, false si no
