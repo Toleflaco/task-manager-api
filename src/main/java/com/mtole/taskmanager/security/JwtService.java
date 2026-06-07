@@ -26,12 +26,12 @@ public class JwtService {
     }
 
 
-    public String generateToken(Long userId) {
+    public String generateAccessToken(Long userId) {
         log.debug("Generating JWT Token for userId{}", userId);
         return Jwts.builder()
                 .subject(userId.toString())
                 .issuedAt(new Date())
-                .expiration(Date.from(Instant.now().plus(Duration.ofMinutes(jwtProperties.expirationMinutes()))))
+                .expiration(Date.from(Instant.now().plus((jwtProperties.accessExpiration()))))
                 .signWith(getSigningKey())
                 .compact();
     }
