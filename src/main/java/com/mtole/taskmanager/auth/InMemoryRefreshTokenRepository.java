@@ -1,11 +1,14 @@
 package com.mtole.taskmanager.auth;
 
+import org.springframework.stereotype.Repository;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Repository
 public class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
 
     private final Map<Long, RefreshToken> refreshTokens = new ConcurrentHashMap<>();

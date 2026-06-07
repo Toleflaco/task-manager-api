@@ -1,5 +1,6 @@
 package com.mtole.taskmanager.common;
 
+import com.mtole.taskmanager.auth.InvalidRefreshTokenException;
 import com.mtole.taskmanager.tasks.InvalidTaskStateException;
 import com.mtole.taskmanager.users.DuplicateEmailException;
 import org.slf4j.Logger;
@@ -109,6 +110,17 @@ public class GlobalExceptionHandler {
                 ex.getMessage()
         );
         pd.setTitle("Email already registered");
+        pd.setProperty("timestamp", LocalDateTime.now());
+        return pd;
+    }
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ProblemDetail handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
+
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNAUTHORIZED,
+                "Invalid refresh token"
+        );
+        pd.setTitle("Invalid Refresh Token");
         pd.setProperty("timestamp", LocalDateTime.now());
         return pd;
     }

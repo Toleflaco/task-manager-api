@@ -29,6 +29,17 @@ public class AuthController {
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+    @Operation(summary ="Refresh token",
+            description = "Exchanges a valid refresh token for a new access + refresh token pair (rotation)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Refresh token successful"),
+            @ApiResponse(responseCode = "400", description = "Invalid input data"),
+            @ApiResponse(responseCode = "401", description = "Invalid credentials")
 
+    })
+    @PostMapping("/refresh")
+    public RefreshTokenResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return authService.refresh(request);
     }
 }
