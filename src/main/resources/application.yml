@@ -4,18 +4,44 @@ server:
 spring:
   application:
     name: task-manager-api
+
+  # Profile activo por defecto en local.
+  # En CI/CD o producción se sobreescribe con SPRING_PROFILES_ACTIVE.
+  profiles:
+    active: dev
+
+  # Configuración JPA común a todos los entornos.
+  jpa:
+    # Hibernate solo VALIDA que las @Entity casan con el schema.
+    # Quien crea/modifica el schema es Flyway. Nunca se debe poner
+    # 'update' o 'create' en entornos persistentes.
+    hibernate:
+      ddl-auto: validate
+    # Desactiva el patrón Open Session In View (OSIV).
+    # OSIV mantiene la sesión Hibernate abierta durante todo el ciclo
+    # HTTP, incluyendo la fase de renderizado de la respuesta. Es
+    # cómodo (evita LazyInitializationException), pero es un
+    # antipatrón en APIs REST: oculta problemas N+1, dificulta el
+    # control transaccional explícito y mantiene conexiones abiertas
+    # de más. Lo desactivamos desde el día 1.
+    open-in-view: false
+    # No mostrar SQL aquí — eso es decisión por entorno y va en -dev.
+
 logging:
   pattern:
     console: "%d{HH:mm:ss.SSS} %-5level [%X{requestId}] %logger{36} - %msg%n"
+
 jwt:
-  secret: ${JWT_SECRET:}
-  # Dev values: short for testing the full refresh cycle in one session
-  # Production values: 15m access / 7d refresh (RFC 6749 standard)
+  # NOTA TÉCNICA: estos valores cortos son para testing del ciclo
+  # de refresh completo en una sesión. En producción serían
+  # access: 15m / refresh: 7d (estándar RFC 6749).
   access-expiration: 1m
   refresh-expiration: 5m
+
 rate-limit:
-  # Login: 5 attempts allowed in burst, then 1 attempt per minute regenerated.
-  # Production might tighten to 3 capacity / 5m refill depending on attack pattern.
+  # Login: 5 intentos en ráfaga, después 1 ficha regenerada por minuto.
+  # En producción podría apretarse a capacity 3 / refill 5m según
+  # patrón de ataque detectado.
   login:
     capacity: 5
     refill-period: 1m

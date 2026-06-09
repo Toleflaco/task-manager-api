@@ -1,0 +1,53 @@
+spring:
+  # Conexión a PostgreSQL local en WSL.
+  datasource:
+    url: jdbc:postgresql://localhost:5432/task_manager
+    username: task_manager_app
+    password: ${DB_PASSWORD}
+    # HikariCP es el pool por defecto en Spring Boot. Valores
+    # conservadores para dev local — para producción se ajustan
+    # según carga real.
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+
+  # Flyway gestiona el schema desde el día 1.
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # En dev se permite ejecutar contra una BD ya creada con datos
+    # previos (no es el caso ahora — BD vacía — pero es lo que
+    # quieres en dev para no rehacer todo cada vez).
+    baseline-on-migrate: true
+
+  # Mostrar el SQL real que Hibernate ejecuta. Imprescindible
+  # en dev para entender qué hace JPA por debajo.
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        # SQL indentado y legible en consola.
+        format_sql: true
+        # Comentarios en el SQL que indican qué entidad/operación
+        # lo generó. Útil para debug.
+        use_sql_comments: true
+
+# JWT secret leído de env var. En dev local sale de tu ~/.secrets;
+# en producción saldría de un secret manager.
+jwt:
+  secret: ${JWT_SECRET}
+
+# Logging verboso de Hibernate solo en dev. En producción esto
+# llenaría logs y filtraría datos sensibles.
+logging:
+  level:
+    org.springframework.boot.autoconfigure: DEBUG
+    org.springframework.boot.autoconfigure.flyway: TRACE
+    # SQL ejecutado por Hibernate (DEBUG).
+    org.hibernate.SQL: DEBUG
+    # Parámetros bindeados al PreparedStatement (TRACE).
+    # CUIDADO: esto puede loguear datos sensibles en consola.
+    # Aceptable en local; jamás en prod.
+    org.hibernate.orm.jdbc.bind: TRACE
+    # Flyway: ver qué migraciones aplica en arranque.
+    org.flywaydb: INFO
