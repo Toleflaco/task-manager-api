@@ -13,3 +13,9 @@ jwt:
   # Production values: 15m access / 7d refresh (RFC 6749 standard)
   access-expiration: 1m
   refresh-expiration: 5m
+rate-limit:
+  # Login: 5 attempts allowed in burst, then 1 attempt per minute regenerated.
+  # Production might tighten to 3 capacity / 5m refill depending on attack pattern.
+  login:
+    capacity: 5
+    refill-period: 1m
