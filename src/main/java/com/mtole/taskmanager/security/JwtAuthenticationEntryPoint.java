@@ -15,7 +15,8 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.net.URI;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 @Component
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
@@ -42,7 +43,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         );
         problem.setTitle("Unauthorized");
         problem.setInstance(URI.create(request.getRequestURI()));
-        problem.setProperty("timestamp", LocalDateTime.now());
+        problem.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
 
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);

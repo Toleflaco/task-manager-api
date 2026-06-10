@@ -5,6 +5,7 @@ import com.mtole.taskmanager.tasks.InvalidTaskStateException;
 import com.mtole.taskmanager.users.DuplicateEmailException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -16,7 +17,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.net.URI;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,7 +32,7 @@ public class GlobalExceptionHandler {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
         pd.setTitle("Resource Not Found");
         pd.setType(URI.create("https://taskmanager.mtole.com/errors/not-found"));
-        pd.setProperty("timestamp", LocalDateTime.now());
+        pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
     }
 
@@ -43,7 +45,7 @@ public class GlobalExceptionHandler {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid data provided");
         pd.setTitle("Invalid Data");
         pd.setProperty("fields", errors);
-        pd.setProperty("timestamp", LocalDateTime.now());
+        pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
     }
     @ExceptionHandler(MissingRequestHeaderException.class)
@@ -54,7 +56,7 @@ public class GlobalExceptionHandler {
                 "Required header '" + ex.getHeaderName() + "' is missing"
         );
         pd.setTitle("Missing Required Header");
-        pd.setProperty("timestamp", LocalDateTime.now());
+        pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
     }
     @ExceptionHandler(InvalidTaskStateException.class)
@@ -62,7 +64,7 @@ public class GlobalExceptionHandler {
         log.warn("Invalid task state: {}", ex.getMessage());
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         pd.setTitle("Invalid Task State");
-        pd.setProperty("timestamp", LocalDateTime.now());
+        pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
     }
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
@@ -72,7 +74,7 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST,
                 "Parameter '" + ex.getName() + "' has an invalid value. Expected type: " + ex.getRequiredType().getSimpleName());
         pd.setTitle("Invalid Query Parameter");
-        pd.setProperty("timestamp", LocalDateTime.now());
+        pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
 
     }
@@ -85,7 +87,7 @@ public class GlobalExceptionHandler {
                 "Invalid email or password"
         );
         pd.setTitle("Authentication failed");
-        pd.setProperty("timestamp", LocalDateTime.now());
+        pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
     }
 
@@ -98,7 +100,7 @@ public class GlobalExceptionHandler {
                 "Content-Type '" + ex.getContentType() + "' is not supported. Use application/json."
         );
         pd.setTitle("Unsupported Media Type");
-        pd.setProperty("timestamp", LocalDateTime.now());
+        pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
     }
 
@@ -110,7 +112,7 @@ public class GlobalExceptionHandler {
                 ex.getMessage()
         );
         pd.setTitle("Email already registered");
-        pd.setProperty("timestamp", LocalDateTime.now());
+        pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
     }
     @ExceptionHandler(InvalidRefreshTokenException.class)
@@ -121,7 +123,40 @@ public class GlobalExceptionHandler {
                 "Invalid refresh token"
         );
         pd.setTitle("Invalid Refresh Token");
-        pd.setProperty("timestamp", LocalDateTime.now());
+        pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
+        return pd;
+    }
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        String causeMessage = ex.getMostSpecificCause().getMessage();
+
+        // PostgreSQL incluye "duplicate key" en el mensaje de la SQLState 23505.
+        // Hibernate 7 traduce al padre DataIntegrityViolationException
+        // (no al subtipo DuplicateKeyException), por eso inspeccionamos el mensaje.
+        // Patrón portable: si en el futuro se cambia el motor, el mensaje cambia
+        // pero el handler se ajusta en un solo punto.
+        boolean isUniqueViolation = causeMessage != null
+                && causeMessage.contains("duplicate key");
+
+        if (isUniqueViolation) {
+            log.warn("Unique constraint violation: {}", causeMessage);
+            ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.CONFLICT,
+                    "Resource already exists"
+            );
+            pd.setTitle("Resource Conflict");
+            pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
+            return pd;
+        }
+
+        // Cualquier otra violación de integridad → 500 + log con stacktrace.
+        log.error("Unhandled data integrity violation", ex);
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "An unexpected error occurred"
+        );
+        pd.setTitle("Internal Server Error");
+        pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
     }
 
@@ -131,7 +166,7 @@ public class GlobalExceptionHandler {
         log.error("Unhandled exception", ex); //incluir exception para ver el stacktrace
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
         pd.setTitle("Internal Server Error");
-        pd.setProperty("timestamp", LocalDateTime.now());
+        pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
     }
 

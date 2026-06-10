@@ -1,26 +1,38 @@
 package com.mtole.taskmanager.users;
 
-import java.time.LocalDateTime;
+import jakarta.persistence.*;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+
+@Entity
+@Table(name="users")
 public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String name;
     private String email;
-    private LocalDateTime createdAt;
+    private OffsetDateTime createdAt;
     private String password;
 
 
-    public User() {
+    protected User() {
     }
 
-    public User(Long id, String name, String email, LocalDateTime createdAt, String password) {
+    public User(Long id, String name, String email, OffsetDateTime createdAt, String password) {
         this.id = id;
         this.name = name;
         this.email = email;
         this.createdAt = createdAt;
         this.password = password;
     }
-
+    @PrePersist
+    private void onCreate() {
+        if (this.createdAt == null) {
+            this.createdAt = OffsetDateTime.now(ZoneOffset.UTC);
+        }
+    }
     public String getPassword() {
         return password;
     }
@@ -53,11 +65,22 @@ public class User {
         this.email = email;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
+    public void setCreatedAt(OffsetDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof User other)) return false;
+        return id != null && id.equals(other.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
     }
 }

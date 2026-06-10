@@ -28,12 +28,14 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
     public User create(UserCreateRequest request){
-        log.info("Creating user with email={}", request.email());
-        if (userRepository.existsByEmail(request.email())) {
-            throw new DuplicateEmailException("Email already registered: " + request.email());
+        String normalizedEmail = request.email().toLowerCase();
+        log.info("Creating user with email={}", normalizedEmail);
+        if (userRepository.existsByEmail(normalizedEmail)) {
+            throw new DuplicateEmailException("Email already registered: " + normalizedEmail);
         }
         User entity = userMapper.toEntity(request);
         entity.setPassword(passwordEncoder.encode(request.password()));
+        entity.setEmail(normalizedEmail);
         User createdUser = userRepository.save(entity);
         log.info("Created user with id={}", createdUser.getId());
         return createdUser;
@@ -47,13 +49,16 @@ public class UserService {
             log.warn("Cannot delete user with id={}: not found", id);
             return false;
         }
+        // TODO Fase 6: mover cascade a FK con ON DELETE CASCADE cuando
+        // tasks y categories sean @Entity. Por ahora cascade manual.
         log.info("Cascade-deleting tasks and categories of user={}", id);
         int tasksDeleted = taskRepository.deleteAllByUserId(id);
         int categoriesDeleted = categoryRepository.deleteAllByUserId(id);
-        log.info("Cascade-deleted {} tasks and {} categories of user={}", tasksDeleted, categoriesDeleted, id);
+        log.info("Cascade-deleted {} tasks and {} categories of user={}",
+                tasksDeleted, categoriesDeleted, id);
 
-        boolean deleted = userRepository.deleteById(id);
+        userRepository.deleteById(id);
         log.info("Deleted user with id={}", id);
-        return deleted;
+        return true;
     }
 }

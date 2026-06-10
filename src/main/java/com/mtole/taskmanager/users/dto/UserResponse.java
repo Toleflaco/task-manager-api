@@ -2,7 +2,7 @@ package com.mtole.taskmanager.users.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 public record UserResponse(
         @Schema(description = "User id", example = "32")
@@ -11,7 +11,7 @@ public record UserResponse(
         String name,
         @Schema(description = "User email", example= "juan.mendoza@mendoza.es")
         String email,
-        @Schema(description = "User creation date", example = "2026-01-15T10:30:00")
-        LocalDateTime createdAt
+        @Schema(description = "User creation date", example = "2026-01-15T10:30:00+02:00")
+        OffsetDateTime createdAt
 ) {
 }
