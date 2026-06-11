@@ -12,13 +12,13 @@ import org.mapstruct.ReportingPolicy;
 public interface CategoryMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "userId", ignore = true)
+    @Mapping(target = "user", ignore = true)
     Category toEntity(CategoryCreateRequest req);
 
     CategoryResponse toResponse(Category category);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "userId", ignore = true)
+    @Mapping(target = "user", ignore = true)
     void updateFromRequest(CategoryCreateRequest req, @MappingTarget Category entity);
 }

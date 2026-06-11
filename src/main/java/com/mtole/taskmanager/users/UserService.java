@@ -1,6 +1,6 @@
 package com.mtole.taskmanager.users;
 
-import com.mtole.taskmanager.categories.CategoryRepository;
+
 import com.mtole.taskmanager.tasks.TaskRepository;
 import com.mtole.taskmanager.users.dto.UserCreateRequest;
 import org.slf4j.Logger;
@@ -14,15 +14,15 @@ import java.util.Optional;
 public class UserService {
     private final UserRepository userRepository;
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
-    private final CategoryRepository categoryRepository;
+
     private final TaskRepository taskRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, CategoryRepository categoryRepository, TaskRepository taskRepository,
+    public UserService(UserRepository userRepository, TaskRepository taskRepository,
                        UserMapper userMapper, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
-        this.categoryRepository = categoryRepository;
+
         this.taskRepository = taskRepository;
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
@@ -53,9 +53,6 @@ public class UserService {
         // tasks y categories sean @Entity. Por ahora cascade manual.
         log.info("Cascade-deleting tasks and categories of user={}", id);
         int tasksDeleted = taskRepository.deleteAllByUserId(id);
-        int categoriesDeleted = categoryRepository.deleteAllByUserId(id);
-        log.info("Cascade-deleted {} tasks and {} categories of user={}",
-                tasksDeleted, categoriesDeleted, id);
 
         userRepository.deleteById(id);
         log.info("Deleted user with id={}", id);

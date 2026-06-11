@@ -2,7 +2,7 @@ package com.mtole.taskmanager.categories.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 public record CategoryResponse(
         @Schema(description = "Category id", example = "32")
@@ -12,6 +12,6 @@ public record CategoryResponse(
         @Schema(description = "Category description", example = "Work-related category")
         String description,
         @Schema(description = "Category creation date", example = "2026-01-15T10:30:00")
-        LocalDateTime createdAt
+        OffsetDateTime createdAt
         ) {
 }

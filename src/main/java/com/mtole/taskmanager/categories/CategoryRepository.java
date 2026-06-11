@@ -1,13 +1,17 @@
 package com.mtole.taskmanager.categories;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+
 import java.util.List;
 import java.util.Optional;
 
-public interface CategoryRepository {
-    Category save(Category category);
+public interface CategoryRepository extends JpaRepository<Category, Long> {
+
     Optional<Category> findByIdAndUserId(Long id,Long userId);
-    List<Category> findAllByUserId(Long userId, int page, int pageSize);
-    int countByUserId(Long userId);
-    boolean deleteByIdAndUserId(Long id, Long userId);
-    int deleteAllByUserId(Long userId);
+    Page<Category> findAllByUserId(Long userId, Pageable pageable);
+    long countByUserId(Long userId);
+    long deleteByIdAndUserId(Long id, Long userId);
+
 }

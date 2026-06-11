@@ -20,13 +20,6 @@ public class User {
     protected User() {
     }
 
-    public User(Long id, String name, String email, OffsetDateTime createdAt, String password) {
-        this.id = id;
-        this.name = name;
-        this.email = email;
-        this.createdAt = createdAt;
-        this.password = password;
-    }
     @PrePersist
     private void onCreate() {
         if (this.createdAt == null) {

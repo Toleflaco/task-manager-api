@@ -1,23 +1,33 @@
 package com.mtole.taskmanager.categories;
 
-import java.time.LocalDateTime;
+import com.mtole.taskmanager.users.User;
+import jakarta.persistence.*;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+
+@Entity
+@Table(name = "categories")
 public class Category {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String name;
     private String description;
-    private LocalDateTime createdAt;
-    private Long userId;
+    private OffsetDateTime createdAt;
 
-    public Category() {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    protected Category() {
     }
 
-    public Category(Long id, String name, String description, LocalDateTime createdAt, Long userId) {
-        this.id = id;
-        this.name = name;
-        this.description = description;
-        this.createdAt = createdAt;
-        this.userId = userId;
+    @PrePersist
+    private void onCreate() {
+        if (this.createdAt == null) {
+            this.createdAt = OffsetDateTime.now(ZoneOffset.UTC);
+        }
     }
 
     public Long getId() {
@@ -44,19 +54,31 @@ public class Category {
         this.description = description;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
+    public void setCreatedAt(OffsetDateTime createdAt) {
         this.createdAt = createdAt;
     }
 
-    public Long getUserId() {
-        return userId;
+    public User getUser() {
+        return user;
     }
 
-    public void setUserId(Long userId) {
-        this.userId = userId;
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Category other)) return false;
+        return id != null && id.equals(other.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
     }
 }

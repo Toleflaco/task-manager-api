@@ -3,6 +3,7 @@ package com.mtole.taskmanager.categories;
 import com.mtole.taskmanager.categories.dto.CategoryCreateRequest;
 import com.mtole.taskmanager.categories.dto.CategoryResponse;
 import com.mtole.taskmanager.common.ResourceNotFoundException;
+import com.mtole.taskmanager.common.dto.PagedResponse;
 import com.mtole.taskmanager.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -10,12 +11,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/categories")
@@ -47,22 +47,17 @@ public class CategoryController {
             @ApiResponse(responseCode = "400", description = "Header not valid", content = @Content)
     })
     @GetMapping
-    public Map<String, Object> findAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int pageSize) {
+    public PagedResponse<CategoryResponse> findAll(Pageable pageable) {
         Long currentUserId = SecurityUtils.currentUserId();
-        List<Category> categories = categoryService.findAll(currentUserId, page, pageSize);
-        List<CategoryResponse> categoriesResponse = categories.stream().map(categoryMapper::toResponse)
-                .toList();
-        int totalElements = categoryService.countAll(currentUserId);
-        int totalPages = (int) Math.ceil((double) totalElements / pageSize);
-        return Map.of(
-                "content", categoriesResponse,
-                "page", page,
-                "pageSize", pageSize,
-                "totalElements", totalElements,
-                "totalPages", totalPages
+        Page<Category> page = categoryService.findAll(currentUserId, pageable);
+        Page<CategoryResponse> responsePage = page.map(categoryMapper::toResponse);
+        return new PagedResponse<>(
+                responsePage.getContent(),
+                responsePage.getNumber(),
+                responsePage.getSize(),
+                responsePage.getTotalElements()
         );
     }
-
     @Operation(summary = "Search for a category by ID", description = "Searches for a category by ID; if it is not found, it returns an exception")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Category found"),
