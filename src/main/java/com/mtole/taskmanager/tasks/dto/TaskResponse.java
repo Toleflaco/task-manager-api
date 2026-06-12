@@ -4,7 +4,7 @@ import com.mtole.taskmanager.tasks.Priority;
 import com.mtole.taskmanager.tasks.TaskStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 public record TaskResponse(
         @Schema(description = "Task id", example = "32")
@@ -17,12 +17,12 @@ public record TaskResponse(
         TaskStatus status,
         @Schema(description = "Task priority", example = "LOW")
         Priority priority,
-        @Schema(description = "Date created task", example = "2026-06-02T16:02:30")
-        LocalDateTime createdAt,
-        @Schema(description = "Task dueDate", example = "2026-06-02T16:02:30")
-        LocalDateTime dueDate,
-        @Schema(description = "Completion timestamp, null if task is not completed yet", example = "2026-06-02T16:02:30")
-        LocalDateTime completedAt,
+        @Schema(description = "Date created task", example = "2026-06-02T16:02:30+02:00")
+        OffsetDateTime createdAt,
+        @Schema(description = "Task dueDate", example = "2026-06-02T16:02:30+02:00")
+        OffsetDateTime dueDate,
+        @Schema(description = "Completion timestamp, null if task is not completed yet", example = "2026-06-02T16:02:30+02:00")
+        OffsetDateTime completedAt,
         @Schema(description = "Category Id", example = "12")
         Long categoryId
 ) {

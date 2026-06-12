@@ -12,11 +12,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/tasks")
@@ -113,20 +113,16 @@ public class TaskController {
             @ApiResponse(responseCode = "400", description = "Invalid query parameter", content = @Content)
     })
     @GetMapping
-    public PagedResponse<TaskResponse> findAll(@RequestParam(required = false) TaskStatus status,
-                                               @RequestParam(required = false) Priority priority,
-                                               @RequestParam(required = false) Long categoryId,
-                                               @RequestParam(defaultValue = "0") int page,
-                                               @RequestParam(defaultValue = "20") int pageSize) {
+    public PagedResponse<TaskResponse> findAll(Pageable pageable) {
         Long currentUserId = SecurityUtils.currentUserId();
-        TaskFilter filter = new TaskFilter(status, priority, categoryId);
-        List<Task> tasks = taskService.findAll(currentUserId, filter, page, pageSize);
-        int totalElements = taskService.countAll(currentUserId, filter);
-        List<TaskResponse> tasksResponse = tasks.stream()
-                .map(taskMapper::toResponse)
-                .toList();
-
-        return new PagedResponse<>(tasksResponse, page, pageSize, totalElements);
+        Page<Task> page = taskService.findAll(currentUserId, pageable);
+        Page<TaskResponse> responsePage = page.map(taskMapper::toResponse);
+        return new PagedResponse<>(
+                responsePage.getContent(),
+                responsePage.getNumber(),
+                responsePage.getSize(),
+                responsePage.getTotalElements()
+        );
     }
 
 }

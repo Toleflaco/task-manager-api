@@ -13,18 +13,21 @@ import org.mapstruct.ReportingPolicy;
 public interface TaskMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "userId", ignore = true)
+    @Mapping(target = "user", ignore = true)
     @Mapping(target = "completedAt", ignore = true)
     @Mapping(target = "status", ignore = true)
+    @Mapping(target = "category", ignore = true)
     Task toEntity(TaskCreateRequest req);
 
+    @Mapping(source = "category.id", target = "categoryId")
     TaskResponse toResponse(Task task);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "userId", ignore = true)
+    @Mapping(target = "user", ignore = true)
     @Mapping(target = "completedAt", ignore = true)
     @Mapping(target = "status", ignore = true)
+    @Mapping(target = "category", ignore = true)
     void updateFromRequest(TaskUpdateRequest req, @MappingTarget Task task);
 
 }

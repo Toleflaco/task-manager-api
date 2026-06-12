@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 public record TaskCreateRequest(
         @Schema(description = "Task title", example = "Work in roadmap Java")
@@ -15,8 +15,8 @@ public record TaskCreateRequest(
         String description,
         @Schema(description = "Task priority", example = "LOW")
         @NotNull Priority priority,
-        @Schema(description = "Task dueDate", example = "2026-06-02T16:02:30.123")
-        LocalDateTime dueDate,
+        @Schema(description = "Task dueDate", example = "2026-06-02T16:02:30.123+02:00")
+        OffsetDateTime dueDate,
         @Schema(description = "Category Id", example = "12")
         Long categoryId
         ) {

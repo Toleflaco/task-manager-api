@@ -1,35 +1,49 @@
 package com.mtole.taskmanager.tasks;
 
-import java.time.LocalDateTime;
+import com.mtole.taskmanager.categories.Category;
+import com.mtole.taskmanager.users.User;
+import jakarta.persistence.*;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.Objects;
+
+@Entity
+@Table(name="tasks")
 public class Task {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String title;
     private String description;
-    private TaskStatus status;
-    private Priority priority;
-    private LocalDateTime createdAt;
-    private LocalDateTime dueDate;
-    private LocalDateTime completedAt;
-    private Long userId;
-    private Long categoryId;
 
-    public Task() {
+    @Enumerated(EnumType.STRING)
+    @Column(nullable=false)
+    private TaskStatus status = TaskStatus.PENDING;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable=false)
+    private Priority priority = Priority.MEDIUM;
+
+    private OffsetDateTime createdAt;
+    private OffsetDateTime  dueDate;
+    private OffsetDateTime  completedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name="user_id", nullable=false)
+    private User user;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable=true)
+    private Category category;
+
+    protected Task() {
     }
 
-    public Task(Long id, String title, String description, TaskStatus status, Priority priority,
-                LocalDateTime createdAt, LocalDateTime dueDate, LocalDateTime completedAt,
-                Long userId, Long categoryId) {
-        this.id = id;
-        this.title = title;
-        this.description = description;
-        this.status = status;
-        this.priority = priority;
-        this.createdAt = createdAt;
-        this.dueDate = dueDate;
-        this.completedAt = completedAt;
-        this.userId = userId;
-        this.categoryId = categoryId;
+    @PrePersist
+    private void onCreate() {
+        if (this.createdAt == null) {
+            this.createdAt = OffsetDateTime.now(ZoneOffset.UTC);
+        }
     }
 
     public Long getId() {
@@ -72,43 +86,57 @@ public class Task {
         this.priority = priority;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public OffsetDateTime  getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
+    public void setCreatedAt(OffsetDateTime  createdAt) {
         this.createdAt = createdAt;
     }
 
-    public LocalDateTime getDueDate() {
+    public OffsetDateTime  getDueDate() {
         return dueDate;
     }
 
-    public void setDueDate(LocalDateTime dueDate) {
+    public void setDueDate(OffsetDateTime  dueDate) {
         this.dueDate = dueDate;
     }
 
-    public LocalDateTime getCompletedAt() {
+    public OffsetDateTime  getCompletedAt() {
         return completedAt;
     }
 
-    public void setCompletedAt(LocalDateTime completedAt) {
+    public void setCompletedAt(OffsetDateTime  completedAt) {
         this.completedAt = completedAt;
     }
 
-    public Long getUserId() {
-        return userId;
+    public User getUser() {
+        return user;
     }
 
-    public void setUserId(Long userId) {
-        this.userId = userId;
+    public void setUser(User user) {
+        this.user = user;
     }
 
-    public Long getCategoryId() {
-        return categoryId;
+    public Category getCategory() {
+        return category;
     }
 
-    public void setCategoryId(Long categoryId) {
-        this.categoryId = categoryId;
+    public void setCategory(Category category) {
+        this.category = category;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Task other)) return false;
+        return id != null && id.equals(other.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
+
+
 }

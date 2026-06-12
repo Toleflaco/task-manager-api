@@ -1,7 +1,6 @@
 package com.mtole.taskmanager.users;
 
 
-import com.mtole.taskmanager.tasks.TaskRepository;
 import com.mtole.taskmanager.users.dto.UserCreateRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,15 +14,15 @@ public class UserService {
     private final UserRepository userRepository;
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
-    private final TaskRepository taskRepository;
+
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, TaskRepository taskRepository,
+    public UserService(UserRepository userRepository,
                        UserMapper userMapper, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
 
-        this.taskRepository = taskRepository;
+
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
     }
@@ -49,11 +48,7 @@ public class UserService {
             log.warn("Cannot delete user with id={}: not found", id);
             return false;
         }
-        // TODO Fase 6: mover cascade a FK con ON DELETE CASCADE cuando
-        // tasks y categories sean @Entity. Por ahora cascade manual.
-        log.info("Cascade-deleting tasks and categories of user={}", id);
-        int tasksDeleted = taskRepository.deleteAllByUserId(id);
-
+        log.info("Deleted user with id={} (tasks and categories cascade via FK)", id);
         userRepository.deleteById(id);
         log.info("Deleted user with id={}", id);
         return true;
