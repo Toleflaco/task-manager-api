@@ -34,8 +34,11 @@ spring:
 
 # JWT secret leído de env var. En dev local sale de tu ~/.secrets;
 # en producción saldría de un secret manager.
+# Override de expiración para que las sesiones de desarrollo no
+# obliguen a re-loguear continuamente. Producción usa 15m del base.
 jwt:
   secret: ${JWT_SECRET}
+  access-expiration: 60m
 
 # Logging verboso de Hibernate solo en dev. En producción esto
 # llenaría logs y filtraría datos sensibles.

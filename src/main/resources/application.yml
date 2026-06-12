@@ -32,11 +32,11 @@ logging:
     console: "%d{HH:mm:ss.SSS} %-5level [%X{requestId}] %logger{36} - %msg%n"
 
 jwt:
-  # NOTA TÉCNICA: estos valores cortos son para testing del ciclo
-  # de refresh completo en una sesión. En producción serían
-  # access: 15m / refresh: 7d (estándar RFC 6749).
-  access-expiration: 1m
-  refresh-expiration: 5m
+  # Defaults seguros para producción (estándar RFC 6749).
+  # Para sesiones de dev cómodas (60m), ver override en
+  # application-dev.yml.
+  access-expiration: 15m
+  refresh-expiration: 7d
 
 rate-limit:
   # Login: 5 intentos en ráfaga, después 1 ficha regenerada por minuto.
