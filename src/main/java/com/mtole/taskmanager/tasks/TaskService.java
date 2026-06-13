@@ -105,8 +105,11 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Task> findAll(Long currentUserId, Pageable pageable) {
-        return taskRepository.findAllByUserId(currentUserId, pageable);
+    public Page<Task> findAll(Long currentUserId, String categoryName, Pageable pageable) {
+        if (categoryName == null || categoryName.isBlank()) {
+            return taskRepository.findAllByUserId(currentUserId, pageable);
+        }
+        return taskRepository.findByUserIdAndCategoryName(currentUserId, categoryName, pageable);
     }
 
     @Transactional(readOnly = true)

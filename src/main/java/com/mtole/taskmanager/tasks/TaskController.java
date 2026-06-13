@@ -7,6 +7,7 @@ import com.mtole.taskmanager.tasks.dto.TaskCreateRequest;
 import com.mtole.taskmanager.tasks.dto.TaskResponse;
 import com.mtole.taskmanager.tasks.dto.TaskUpdateRequest;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -113,9 +114,12 @@ public class TaskController {
             @ApiResponse(responseCode = "400", description = "Invalid query parameter", content = @Content)
     })
     @GetMapping
-    public PagedResponse<TaskResponse> findAll(Pageable pageable) {
+    public PagedResponse<TaskResponse> findAll(
+            @Parameter(description = "Optional filter by exact category name", example = "Trabajo")
+            @RequestParam(required = false) String categoryName,
+            Pageable pageable) {
         Long currentUserId = SecurityUtils.currentUserId();
-        Page<Task> page = taskService.findAll(currentUserId, pageable);
+        Page<Task> page = taskService.findAll(currentUserId, categoryName, pageable);
         Page<TaskResponse> responsePage = page.map(taskMapper::toResponse);
         return new PagedResponse<>(
                 responsePage.getContent(),
