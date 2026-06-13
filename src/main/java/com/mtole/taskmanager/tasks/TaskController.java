@@ -23,10 +23,12 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/tasks")
 @Tag(name = "Tasks", description = "CRUD task")
 public class TaskController {
+
     private final TaskService taskService;
     private final TaskMapper taskMapper;
 
     public TaskController(TaskService taskService, TaskMapper taskMapper) {
+
         this.taskService = taskService;
         this.taskMapper = taskMapper;
     }
@@ -128,6 +130,7 @@ public class TaskController {
                 responsePage.getTotalElements()
         );
     }
+
 
 }
 
