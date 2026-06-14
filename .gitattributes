@@ -1,2 +1,14 @@
-/mvnw text eol=lf
+# Auto-detect text files and force LF line endings in working tree
+* text=auto eol=lf
+
+# Windows-specific scripts keep CRLF (Maven wrapper, .bat)
 *.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary files — no transformation
+*.jar binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.class binary
