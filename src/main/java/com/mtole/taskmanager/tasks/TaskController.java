@@ -117,11 +117,17 @@ public class TaskController {
     })
     @GetMapping
     public PagedResponse<TaskResponse> findAll(
+            @Parameter(description = "Optional filter by task status", example = "PENDING")
+            @RequestParam(required = false) TaskStatus status,
+            @Parameter(description = "Optional filter by task priority", example = "HIGH")
+            @RequestParam(required = false) Priority priority,
             @Parameter(description = "Optional filter by exact category name", example = "Trabajo")
             @RequestParam(required = false) String categoryName,
+
             Pageable pageable) {
         Long currentUserId = SecurityUtils.currentUserId();
-        Page<Task> page = taskService.findAll(currentUserId, categoryName, pageable);
+        TaskFilter filter = new TaskFilter(status,priority,categoryName);
+        Page<Task> page = taskService.findAll(currentUserId, filter, pageable);
         Page<TaskResponse> responsePage = page.map(taskMapper::toResponse);
         return new PagedResponse<>(
                 responsePage.getContent(),

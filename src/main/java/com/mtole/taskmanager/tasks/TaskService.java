@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -105,11 +106,24 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Task> findAll(Long currentUserId, String categoryName, Pageable pageable) {
-        if (categoryName == null || categoryName.isBlank()) {
-            return taskRepository.findAllByUserId(currentUserId, pageable);
+    public Page<Task> findAll(Long currentUserId, TaskFilter filter, Pageable pageable) {
+        Specification<Task> spec = buildSpecification(currentUserId,filter);
+        return taskRepository.findAll(spec, pageable);
+    }
+
+    private Specification<Task> buildSpecification(Long currentUserId, TaskFilter filter) {
+        Specification<Task> spec = TaskSpecifications.byUserId(currentUserId);
+
+        if (filter.status() != null) {
+            spec = spec.and(TaskSpecifications.byStatus(filter.status()));
         }
-        return taskRepository.findByUserIdAndCategoryName(currentUserId, categoryName, pageable);
+        if (filter.priority() != null) {
+            spec = spec.and(TaskSpecifications.byPriority(filter.priority()));
+        }
+        if (filter.categoryName() != null && !filter.categoryName().isBlank()) {
+            spec = spec.and(TaskSpecifications.byCategoryName(filter.categoryName()));
+        }
+        return spec;
     }
 
     @Transactional(readOnly = true)
