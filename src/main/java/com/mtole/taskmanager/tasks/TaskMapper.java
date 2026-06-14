@@ -19,7 +19,8 @@ public interface TaskMapper {
     @Mapping(target = "category", ignore = true)
     Task toEntity(TaskCreateRequest req);
 
-    @Mapping(source = "category.id", target = "categoryId")
+    @Mapping(target = "categoryId", source = "category.id")
+    @Mapping(target = "categoryName", source = "category.name")
     TaskResponse toResponse(Task task);
 
     @Mapping(target = "id", ignore = true)

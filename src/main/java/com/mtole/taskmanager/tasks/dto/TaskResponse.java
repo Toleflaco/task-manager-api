@@ -24,6 +24,8 @@ public record TaskResponse(
         @Schema(description = "Completion timestamp, null if task is not completed yet", example = "2026-06-02T16:02:30+02:00")
         OffsetDateTime completedAt,
         @Schema(description = "Category Id", example = "12")
-        Long categoryId
+        Long categoryId,
+        @Schema(description = "Category name (denormalized for read convenience)", example = "Trabajo")
+        String categoryName
 ) {
 }
