@@ -5,6 +5,7 @@ import com.mtole.taskmanager.common.dto.PagedResponse;
 import com.mtole.taskmanager.security.SecurityUtils;
 import com.mtole.taskmanager.tasks.dto.TaskCreateRequest;
 import com.mtole.taskmanager.tasks.dto.TaskResponse;
+import com.mtole.taskmanager.tasks.dto.TaskSummaryProjection;
 import com.mtole.taskmanager.tasks.dto.TaskUpdateRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -116,7 +117,7 @@ public class TaskController {
             @ApiResponse(responseCode = "400", description = "Invalid query parameter", content = @Content)
     })
     @GetMapping
-    public PagedResponse<TaskResponse> findAll(
+    public PagedResponse<TaskSummaryProjection> findAll(
             @Parameter(description = "Optional filter by task status", example = "PENDING")
             @RequestParam(required = false) TaskStatus status,
             @Parameter(description = "Optional filter by task priority", example = "HIGH")
@@ -126,14 +127,14 @@ public class TaskController {
 
             Pageable pageable) {
         Long currentUserId = SecurityUtils.currentUserId();
-        TaskFilter filter = new TaskFilter(status,priority,categoryName);
-        Page<Task> page = taskService.findAll(currentUserId, filter, pageable);
-        Page<TaskResponse> responsePage = page.map(taskMapper::toResponse);
+        TaskFilter filter = new TaskFilter(status, priority, categoryName);
+        Page<TaskSummaryProjection> page = taskService.findAll(currentUserId, filter, pageable);
+
         return new PagedResponse<>(
-                responsePage.getContent(),
-                responsePage.getNumber(),
-                responsePage.getSize(),
-                responsePage.getTotalElements()
+                page.getContent(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements()
         );
     }
 

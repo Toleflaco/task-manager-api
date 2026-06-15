@@ -4,6 +4,7 @@ import com.mtole.taskmanager.categories.Category;
 import com.mtole.taskmanager.categories.CategoryRepository;
 import com.mtole.taskmanager.common.ResourceNotFoundException;
 import com.mtole.taskmanager.tasks.dto.TaskCreateRequest;
+import com.mtole.taskmanager.tasks.dto.TaskSummaryProjection;
 import com.mtole.taskmanager.tasks.dto.TaskUpdateRequest;
 import com.mtole.taskmanager.users.UserRepository;
 import org.slf4j.Logger;
@@ -106,9 +107,9 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Task> findAll(Long currentUserId, TaskFilter filter, Pageable pageable) {
-        Specification<Task> spec = buildSpecification(currentUserId,filter);
-        return taskRepository.findAll(spec, pageable);
+    public Page<TaskSummaryProjection> findAll(Long currentUserId, TaskFilter filter, Pageable pageable) {
+        Specification<Task> spec = buildSpecification(currentUserId, filter);
+        return taskRepository.findAllSummariesBy(spec, pageable);
     }
 
     private Specification<Task> buildSpecification(Long currentUserId, TaskFilter filter) {
