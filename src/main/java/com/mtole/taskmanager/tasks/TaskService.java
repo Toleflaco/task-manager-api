@@ -4,6 +4,7 @@ import com.mtole.taskmanager.categories.Category;
 import com.mtole.taskmanager.categories.CategoryRepository;
 import com.mtole.taskmanager.common.ResourceNotFoundException;
 import com.mtole.taskmanager.tasks.dto.TaskCreateRequest;
+import com.mtole.taskmanager.tasks.dto.TaskStatsResponse;
 import com.mtole.taskmanager.tasks.dto.TaskSummaryProjection;
 import com.mtole.taskmanager.tasks.dto.TaskUpdateRequest;
 import com.mtole.taskmanager.users.UserRepository;
@@ -144,6 +145,11 @@ public class TaskService {
             log.warn("Task with id={} not found or not owned by user={}", id, currentUserId);
             return false;
         }
+    }
+
+    @Transactional(readOnly = true)
+    public TaskStatsResponse getStats(Long currentUserId) {
+        return taskRepository.findStatsByUserId(currentUserId);
     }
 
 }

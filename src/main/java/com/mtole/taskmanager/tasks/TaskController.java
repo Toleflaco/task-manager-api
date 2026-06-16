@@ -3,10 +3,7 @@ package com.mtole.taskmanager.tasks;
 import com.mtole.taskmanager.common.ResourceNotFoundException;
 import com.mtole.taskmanager.common.dto.PagedResponse;
 import com.mtole.taskmanager.security.SecurityUtils;
-import com.mtole.taskmanager.tasks.dto.TaskCreateRequest;
-import com.mtole.taskmanager.tasks.dto.TaskResponse;
-import com.mtole.taskmanager.tasks.dto.TaskSummaryProjection;
-import com.mtole.taskmanager.tasks.dto.TaskUpdateRequest;
+import com.mtole.taskmanager.tasks.dto.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -138,6 +135,16 @@ public class TaskController {
         );
     }
 
+    @Operation(summary = "Stats of tasks for currentUserId", description = "stats of tasks for currentUserId")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Stats of tasks for the current user"),
+     
+    })
+    @GetMapping("/stats")
+    public TaskStatsResponse getStats() {
+        Long currentUserId = SecurityUtils.currentUserId();
+        return taskService.getStats(currentUserId);
+    }
 
 }
 
