@@ -1,12 +1,16 @@
 package com.mtole.taskmanager.users;
 
+import com.mtole.taskmanager.categories.Category;
+import com.mtole.taskmanager.tasks.Task;
 import jakarta.persistence.*;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
-@Table(name="users")
+@Table(name = "users")
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -16,6 +20,11 @@ public class User {
     private OffsetDateTime createdAt;
     private String password;
 
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    private List<Task> tasks = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    private List<Category> categories = new ArrayList<>();
 
     protected User() {
     }
@@ -26,6 +35,26 @@ public class User {
             this.createdAt = OffsetDateTime.now(ZoneOffset.UTC);
         }
     }
+
+    public List<Task> getTasks() {
+        return tasks;
+    }
+
+    public void addTask(Task task) {
+        this.tasks.add(task);
+        task.setUser(this);
+    }
+
+    public List<Category> getCategories() {
+        return categories;
+    }
+
+    public void addCategory(Category category) {
+        this.categories.add(category);
+        category.setUser(this);
+    }
+
+
     public String getPassword() {
         return password;
     }
@@ -65,6 +94,7 @@ public class User {
     public void setCreatedAt(OffsetDateTime createdAt) {
         this.createdAt = createdAt;
     }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
