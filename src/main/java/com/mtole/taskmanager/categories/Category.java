@@ -2,7 +2,9 @@ package com.mtole.taskmanager.categories;
 
 import com.mtole.taskmanager.users.User;
 import jakarta.persistence.*;
+import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -23,6 +25,11 @@ public class Category {
     private OffsetDateTime updatedAt;
     @Version
     private Long version;
+    @CreatedBy
+    private Long createdBy;
+
+    @LastModifiedBy
+    private Long lastModifiedBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -74,6 +81,14 @@ public class Category {
 
     public Long getVersion() {
         return version;
+    }
+
+    public Long getCreatedBy() {
+        return createdBy;
+    }
+
+    public Long getLastModifiedBy() {
+        return lastModifiedBy;
     }
 
     @Override

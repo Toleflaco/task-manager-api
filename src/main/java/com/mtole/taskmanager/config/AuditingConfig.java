@@ -10,7 +10,8 @@ import java.time.ZoneOffset;
 import java.util.Optional;
 
 @Configuration
-@EnableJpaAuditing(dateTimeProviderRef = "auditingDateTimeProvider")
+@EnableJpaAuditing(dateTimeProviderRef = "auditingDateTimeProvider", auditorAwareRef = "securityAuditorAware")
+
 public class AuditingConfig {
 
     @Bean

@@ -3,7 +3,9 @@ package com.mtole.taskmanager.tasks;
 import com.mtole.taskmanager.categories.Category;
 import com.mtole.taskmanager.users.User;
 import jakarta.persistence.*;
+import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -33,6 +35,11 @@ public class Task {
     private OffsetDateTime updatedAt;
     @Version
     private Long version;
+    @CreatedBy
+    private Long createdBy;
+
+    @LastModifiedBy
+    private Long lastModifiedBy;
 
     private OffsetDateTime dueDate;
     private OffsetDateTime completedAt;
@@ -132,7 +139,14 @@ public class Task {
         return version;
     }
 
- 
+    public Long getCreatedBy() {
+        return createdBy;
+    }
+
+    public Long getLastModifiedBy() {
+        return lastModifiedBy;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
