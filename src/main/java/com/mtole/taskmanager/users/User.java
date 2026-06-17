@@ -3,21 +3,30 @@ package com.mtole.taskmanager.users;
 import com.mtole.taskmanager.categories.Category;
 import com.mtole.taskmanager.tasks.Task;
 import jakarta.persistence.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Table(name = "users")
+@EntityListeners(AuditingEntityListener.class)
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String name;
     private String email;
+
+    @CreatedDate
     private OffsetDateTime createdAt;
+
+    @LastModifiedDate
+    private OffsetDateTime updatedAt;
+
     private String password;
 
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
@@ -29,12 +38,6 @@ public class User {
     protected User() {
     }
 
-    @PrePersist
-    private void onCreate() {
-        if (this.createdAt == null) {
-            this.createdAt = OffsetDateTime.now(ZoneOffset.UTC);
-        }
-    }
 
     public List<Task> getTasks() {
         return tasks;
@@ -91,9 +94,10 @@ public class User {
         return createdAt;
     }
 
-    public void setCreatedAt(OffsetDateTime createdAt) {
-        this.createdAt = createdAt;
+    public OffsetDateTime getUpdatedAt() {
+        return updatedAt;
     }
+
 
     @Override
     public boolean equals(Object o) {

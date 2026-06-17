@@ -2,19 +2,25 @@ package com.mtole.taskmanager.categories;
 
 import com.mtole.taskmanager.users.User;
 import jakarta.persistence.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 
 @Entity
 @Table(name = "categories")
+@EntityListeners(AuditingEntityListener.class)
 public class Category {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String name;
     private String description;
+    @CreatedDate
     private OffsetDateTime createdAt;
+    @LastModifiedDate
+    private OffsetDateTime updatedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -23,12 +29,6 @@ public class Category {
     protected Category() {
     }
 
-    @PrePersist
-    private void onCreate() {
-        if (this.createdAt == null) {
-            this.createdAt = OffsetDateTime.now(ZoneOffset.UTC);
-        }
-    }
 
     public Long getId() {
         return id;
@@ -58,8 +58,8 @@ public class Category {
         return createdAt;
     }
 
-    public void setCreatedAt(OffsetDateTime createdAt) {
-        this.createdAt = createdAt;
+    public OffsetDateTime getUpdatedAt() {
+        return updatedAt;
     }
 
     public User getUser() {

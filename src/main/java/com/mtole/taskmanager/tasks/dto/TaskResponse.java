@@ -19,6 +19,8 @@ public record TaskResponse(
         Priority priority,
         @Schema(description = "Date created task", example = "2026-06-02T16:02:30+02:00")
         OffsetDateTime createdAt,
+        @Schema(description = "Task update date", example = "2026-01-15T10:30:00+02:00")
+        OffsetDateTime updatedAt,
         @Schema(description = "Task dueDate", example = "2026-06-02T16:02:30+02:00")
         OffsetDateTime dueDate,
         @Schema(description = "Completion timestamp, null if task is not completed yet", example = "2026-06-02T16:02:30+02:00")

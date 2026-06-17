@@ -3,13 +3,15 @@ package com.mtole.taskmanager.tasks;
 import com.mtole.taskmanager.categories.Category;
 import com.mtole.taskmanager.users.User;
 import jakarta.persistence.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.Objects;
 
 @Entity
-@Table(name="tasks")
+@Table(name = "tasks")
+@EntityListeners(AuditingEntityListener.class)
 public class Task {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,33 +20,31 @@ public class Task {
     private String description;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable=false)
+    @Column(nullable = false)
     private TaskStatus status = TaskStatus.PENDING;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable=false)
+    @Column(nullable = false)
     private Priority priority = Priority.MEDIUM;
 
+    @CreatedDate
     private OffsetDateTime createdAt;
-    private OffsetDateTime  dueDate;
-    private OffsetDateTime  completedAt;
+    @LastModifiedDate
+    private OffsetDateTime updatedAt;
+
+    private OffsetDateTime dueDate;
+    private OffsetDateTime completedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name="user_id", nullable=false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", nullable=true)
+    @JoinColumn(name = "category_id", nullable = true)
     private Category category;
 
     protected Task() {
     }
 
-    @PrePersist
-    private void onCreate() {
-        if (this.createdAt == null) {
-            this.createdAt = OffsetDateTime.now(ZoneOffset.UTC);
-        }
-    }
 
     public Long getId() {
         return id;
@@ -86,27 +86,27 @@ public class Task {
         this.priority = priority;
     }
 
-    public OffsetDateTime  getCreatedAt() {
+    public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(OffsetDateTime  createdAt) {
-        this.createdAt = createdAt;
+    public OffsetDateTime getUpdatedAt() {
+        return updatedAt;
     }
 
-    public OffsetDateTime  getDueDate() {
+    public OffsetDateTime getDueDate() {
         return dueDate;
     }
 
-    public void setDueDate(OffsetDateTime  dueDate) {
+    public void setDueDate(OffsetDateTime dueDate) {
         this.dueDate = dueDate;
     }
 
-    public OffsetDateTime  getCompletedAt() {
+    public OffsetDateTime getCompletedAt() {
         return completedAt;
     }
 
-    public void setCompletedAt(OffsetDateTime  completedAt) {
+    public void setCompletedAt(OffsetDateTime completedAt) {
         this.completedAt = completedAt;
     }
 

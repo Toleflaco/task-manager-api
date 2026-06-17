@@ -12,6 +12,8 @@ public record UserResponse(
         @Schema(description = "User email", example= "juan.mendoza@mendoza.es")
         String email,
         @Schema(description = "User creation date", example = "2026-01-15T10:30:00+02:00")
-        OffsetDateTime createdAt
+        OffsetDateTime createdAt,
+        @Schema(description = "User update date", example = "2026-01-15T10:30:00+02:00")
+        OffsetDateTime updatedAt
 ) {
 }

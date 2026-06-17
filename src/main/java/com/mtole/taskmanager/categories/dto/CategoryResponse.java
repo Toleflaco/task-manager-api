@@ -12,6 +12,8 @@ public record CategoryResponse(
         @Schema(description = "Category description", example = "Work-related category")
         String description,
         @Schema(description = "Category creation date", example = "2026-01-15T10:30:00")
-        OffsetDateTime createdAt
+        OffsetDateTime createdAt,
+        @Schema(description = "Category update date", example = "2026-01-15T10:30:00+02:00")
+        OffsetDateTime updatedAt
         ) {
 }
