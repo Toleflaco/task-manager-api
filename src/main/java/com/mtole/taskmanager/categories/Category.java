@@ -21,6 +21,8 @@ public class Category {
     private OffsetDateTime createdAt;
     @LastModifiedDate
     private OffsetDateTime updatedAt;
+    @Version
+    private Long version;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -68,6 +70,10 @@ public class Category {
 
     public void setUser(User user) {
         this.user = user;
+    }
+
+    public Long getVersion() {
+        return version;
     }
 
     @Override

@@ -10,6 +10,7 @@ import com.mtole.taskmanager.tasks.dto.TaskUpdateRequest;
 import com.mtole.taskmanager.users.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -60,7 +61,12 @@ public class TaskService {
         Task existing = taskRepository.findByIdAndUserId(id, currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task with id=" + id + " not found"));
 
-
+        // Optimistic lock check manual
+        if (request.version() != null && !request.version().equals(existing.getVersion())) {
+            throw new OptimisticLockingFailureException(
+                    "Task " + id + " was modified by another request"
+            );
+        }
         Category category = null;
         if (request.categoryId() != null) {
             category = categoryRepository.findByIdAndUserId(request.categoryId(), currentUserId)

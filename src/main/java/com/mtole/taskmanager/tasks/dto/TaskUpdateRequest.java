@@ -18,6 +18,8 @@ public record TaskUpdateRequest(
         @Schema(description = "Task dueDate", example = "2026-06-02T16:02:30.123+02:00")
         OffsetDateTime dueDate,
         @Schema(description = "Category Id", example = "12")
-        Long categoryId
+        Long categoryId,
+        @Schema(description = "Row version", example = "0")
+        Long version
 ) {
 }

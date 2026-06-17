@@ -27,6 +27,9 @@ public class User {
     @LastModifiedDate
     private OffsetDateTime updatedAt;
 
+    @Version
+    private Long version;
+
     private String password;
 
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
@@ -98,6 +101,9 @@ public class User {
         return updatedAt;
     }
 
+    public Long getVersion() {
+        return version;
+    }
 
     @Override
     public boolean equals(Object o) {

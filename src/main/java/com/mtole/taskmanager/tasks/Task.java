@@ -31,6 +31,8 @@ public class Task {
     private OffsetDateTime createdAt;
     @LastModifiedDate
     private OffsetDateTime updatedAt;
+    @Version
+    private Long version;
 
     private OffsetDateTime dueDate;
     private OffsetDateTime completedAt;
@@ -126,6 +128,11 @@ public class Task {
         this.category = category;
     }
 
+    public Long getVersion() {
+        return version;
+    }
+
+ 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

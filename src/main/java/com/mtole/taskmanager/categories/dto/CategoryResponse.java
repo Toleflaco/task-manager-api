@@ -14,6 +14,9 @@ public record CategoryResponse(
         @Schema(description = "Category creation date", example = "2026-01-15T10:30:00")
         OffsetDateTime createdAt,
         @Schema(description = "Category update date", example = "2026-01-15T10:30:00+02:00")
-        OffsetDateTime updatedAt
-        ) {
+        OffsetDateTime updatedAt,
+        @Schema(description = "row version", example = "0")
+        Long version
+
+) {
 }

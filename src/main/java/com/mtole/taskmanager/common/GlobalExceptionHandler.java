@@ -6,6 +6,7 @@ import com.mtole.taskmanager.users.DuplicateEmailException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -48,6 +49,7 @@ public class GlobalExceptionHandler {
         pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
     }
+
     @ExceptionHandler(MissingRequestHeaderException.class)
     public ProblemDetail handleMissingHeader(MissingRequestHeaderException ex) {
         log.warn("Missing required header: {}", ex.getHeaderName());
@@ -59,6 +61,7 @@ public class GlobalExceptionHandler {
         pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
     }
+
     @ExceptionHandler(InvalidTaskStateException.class)
     public ProblemDetail handleInvalidTaskStateException(InvalidTaskStateException ex) {
         log.warn("Invalid task state: {}", ex.getMessage());
@@ -67,6 +70,7 @@ public class GlobalExceptionHandler {
         pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
     }
+
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         log.warn("Invalid value for parameter '{}': {}", ex.getName(), ex.getValue());
@@ -115,6 +119,7 @@ public class GlobalExceptionHandler {
         pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
     }
+
     @ExceptionHandler(InvalidRefreshTokenException.class)
     public ProblemDetail handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
 
@@ -126,6 +131,7 @@ public class GlobalExceptionHandler {
         pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
     }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
         String causeMessage = ex.getMostSpecificCause().getMessage();
@@ -156,6 +162,20 @@ public class GlobalExceptionHandler {
                 "An unexpected error occurred"
         );
         pd.setTitle("Internal Server Error");
+        pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
+        return pd;
+    }
+
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ProblemDetail handleOptimisticLockingFailure(OptimisticLockingFailureException ex) {
+        log.warn("Optimistic lock conflict: {}", ex.getMessage());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "The resource was modified by another request. Please reload and try again."
+        );
+        pd.setTitle("Conflict");
+        pd.setType(URI.create("https://taskmanager.mtole.com/errors/conflict"));
         pd.setProperty("timestamp", OffsetDateTime.now(ZoneOffset.UTC));
         return pd;
     }
