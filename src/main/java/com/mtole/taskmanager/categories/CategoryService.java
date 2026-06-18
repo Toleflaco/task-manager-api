@@ -2,6 +2,7 @@ package com.mtole.taskmanager.categories;
 
 import com.mtole.taskmanager.categories.dto.CategoryCreateRequest;
 import com.mtole.taskmanager.common.ResourceNotFoundException;
+import com.mtole.taskmanager.tasks.TaskRepository;
 import com.mtole.taskmanager.users.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,12 +19,14 @@ public class CategoryService {
     private final CategoryRepository categoryRepository;
     private final CategoryMapper categoryMapper;
     private final UserRepository userRepository;
+    private final TaskRepository taskRepository;
     private static final Logger log = LoggerFactory.getLogger(CategoryService.class);
 
-    public CategoryService(CategoryRepository categoryRepository, CategoryMapper categoryMapper, UserRepository userRepository) {
+    public CategoryService(CategoryRepository categoryRepository, CategoryMapper categoryMapper, UserRepository userRepository, TaskRepository taskRepository) {
         this.categoryRepository = categoryRepository;
         this.categoryMapper = categoryMapper;
         this.userRepository = userRepository;
+        this.taskRepository = taskRepository;
     }
 
     @Transactional
@@ -65,6 +68,8 @@ public class CategoryService {
     @Transactional
     public boolean deleteById(Long id, Long currentUserId) {
         log.info("Deleting category with id={}", id);
+
+        taskRepository.disassociateFromCategory(id);
         long deleted = categoryRepository.deleteByIdAndUserId(id, currentUserId);
         if (deleted > 0) {
             log.info("Deleted category id={}", id);

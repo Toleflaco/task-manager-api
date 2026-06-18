@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -36,4 +37,8 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
                 WHERE t.user.id = :userId
             """)
     TaskStatsResponse findStatsByUserId(@Param("userId") Long userId);
+
+    @Modifying
+    @Query("UPDATE Task t SET t.category = null WHERE t.category.id = :categoryId")
+    int disassociateFromCategory(@Param("categoryId") Long categoryId);
 }

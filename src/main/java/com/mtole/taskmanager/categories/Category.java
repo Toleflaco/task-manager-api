@@ -2,6 +2,8 @@ package com.mtole.taskmanager.categories;
 
 import com.mtole.taskmanager.users.User;
 import jakarta.persistence.*;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedBy;
@@ -13,6 +15,8 @@ import java.time.OffsetDateTime;
 @Entity
 @Table(name = "categories")
 @EntityListeners(AuditingEntityListener.class)
+@SQLDelete(sql="UPDATE categories SET deleted_at = NOW() WHERE id = ? AND version = ?")
+@SQLRestriction("deleted_at IS NULL")
 public class Category {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,6 +34,8 @@ public class Category {
 
     @LastModifiedBy
     private Long lastModifiedBy;
+
+    private OffsetDateTime deletedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

@@ -3,6 +3,8 @@ package com.mtole.taskmanager.tasks;
 import com.mtole.taskmanager.categories.Category;
 import com.mtole.taskmanager.users.User;
 import jakarta.persistence.*;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedBy;
@@ -14,6 +16,8 @@ import java.time.OffsetDateTime;
 @Entity
 @Table(name = "tasks")
 @EntityListeners(AuditingEntityListener.class)
+@SQLDelete(sql="UPDATE tasks SET deleted_at = NOW() WHERE id = ? AND version = ?")
+@SQLRestriction("deleted_at IS NULL")
 public class Task {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,6 +44,8 @@ public class Task {
 
     @LastModifiedBy
     private Long lastModifiedBy;
+
+    private OffsetDateTime deletedAt;
 
     private OffsetDateTime dueDate;
     private OffsetDateTime completedAt;
@@ -146,6 +152,7 @@ public class Task {
     public Long getLastModifiedBy() {
         return lastModifiedBy;
     }
+
 
     @Override
     public boolean equals(Object o) {
