@@ -108,6 +108,20 @@ Ejemplos reales: `V1__create_users.sql`, `V8__add_deleted_at_to_soft_deletable_t
 - `V` mayúscula, número secuencial, doble guion bajo, snake_case, extensión `.sql`.
 - Cada migración es aditiva. Nunca modificar una migración ya aplicada.
 
+### Patrón de migraciones aditivas en tres tiempos
+Para añadir columnas `NOT NULL` a tablas con datos existentes, el patrón es:
+
+```sql
+-- 1. Añadir como nullable
+ALTER TABLE tasks ADD COLUMN created_at TIMESTAMP;
+-- 2. Backfill con valor sensato
+UPDATE tasks SET created_at = NOW() WHERE created_at IS NULL;
+-- 3. Fijar NOT NULL
+ALTER TABLE tasks ALTER COLUMN created_at SET NOT NULL;
+```
+
+Migraciones que usan este patrón: `V5` (timestamps de auditoría), `V6` (`version`), `V7` (`created_by` / `last_modified_by`). `V8` (`deleted_at`) **no** lo usa porque la columna es nullable por diseño.
+
 ### open-in-view: false
 `spring.jpa.open-in-view=false`. Decisión explícita desde el inicio para evitar N+1 ocultos y conexiones abiertas durante la serialización. Nunca reactivar.
 
@@ -123,6 +137,10 @@ No se usan `cascade = CascadeType.*` en las relaciones `@OneToMany` ni `@ManyToO
 
 ### getReferenceById vs findById
 Para asignar relaciones de FK sin cargar el objeto completo, se usa `repository.getReferenceById(id)` (proxy de Hibernate). Solo se usa `findById` cuando se necesita leer campos del objeto.
+
+En `TaskService` y `CategoryService`, se usa `userRepository.getReferenceById(currentUserId)` para asignar el user a la nueva entidad sin disparar un `SELECT`. El proxy de Hibernate solo carga el objeto si se accede a sus campos; como solo se usa como FK (`setUser(proxy)`), no genera `SELECT` — solo guarda el id al hacer flush.
+
+**No usar** `findById(id).get()` para asignar FKs: introduce un `SELECT` innecesario en cada creación.
 
 ---
 
@@ -161,7 +179,7 @@ GET  /v3/api-docs/**
 Todo lo demás requiere JWT válido.
 
 ### Contraseñas
-BCrypt (`BCryptPasswordEncoder`). Sin parámetros de coste explícito (usa el default de Spring).
+BCrypt (`BCryptPasswordEncoder`). Se instancia con `new BCryptPasswordEncoder()` sin argumentos, lo que aplica el coste default de Spring: **10 vueltas (2¹⁰ = 1024 iteraciones)**. No modificar sin medir el impacto en latencia de login.
 
 ---
 
@@ -186,6 +204,17 @@ En los mappers, todos estos campos aparecen con `@Mapping(target = "...", ignore
 ### Optimistic locking
 El cliente debe enviar `version` en las peticiones de actualización (`TaskUpdateRequest`, etc.). El service valida manualmente que `request.version().equals(existing.getVersion())` antes de persistir. Si no coinciden, lanza `OptimisticLockingFailureException` → 409.
 
+### Decisiones específicas sobre el campo `version`
+- **Tipo `Long` (objeto), no `long` (primitivo).** Permite `null` antes del primer INSERT; si fuera primitivo, Hibernate no podría distinguir "sin versión" de "versión 0".
+- **Sin inicialización en la declaración** (`private Long version;`, no `= 0L`). Hibernate lo gestiona.
+- **Sin setter público.** La autoridad sobre `version` es Hibernate vía dirty-checking.
+- **El `@SQLDelete` no incrementa `version`** (el SQL no incluye `SET version = version + 1`). La versión queda con su valor previo tras el soft delete. Decisión consciente: en el modelo actual no hay flujo de restauración con modificaciones intermedias.
+
+### Por qué `User` está excluido de `@CreatedBy` y `@LastModifiedBy`
+En `POST /users` (auto-registro), el `SecurityContext` está vacío — el usuario aún no se ha autenticado. `SecurityAuditorAware` devolvería `Optional.empty()` y, si `User` llevara `@CreatedBy` con columna `NOT NULL`, el `INSERT` fallaría.
+
+Conceptualmente, un user no tiene "creador" en sentido auditoría: se crea a sí mismo. Por eso la tabla `users` no tiene columnas `created_by` ni `last_modified_by`, y la entidad `User` no lleva esas anotaciones. Decisión arquitectónica deliberada, no un oversight.
+
 ---
 
 ## 7. Soft delete
@@ -200,11 +229,20 @@ El cliente debe enviar `version` en las peticiones de actualización (`TaskUpdat
 @SQLRestriction("deleted_at IS NULL")
 ```
 
+### Cómo borrar entidades soft-deletables
+**Usar** derived queries (`deleteByXxx`) o `repository.delete(entity)` con entidad managed. Ambas pasan por el ciclo de vida JPA y disparan `@SQLDelete`, convirtiendo el DELETE en un UPDATE de `deleted_at`.
+
+**Nunca usar** `@Modifying @Query("DELETE FROM X WHERE ...")` JPQL ni `deleteAllInBatch()`. Van directamente a SQL, saltan el ciclo de vida JPA y **no disparan `@SQLDelete`**: el registro se borraría físicamente en lugar de marcarse con `deleted_at`.
+
+Regla práctica: si el código pasa por una entidad managed en algún punto, el ciclo de vida JPA se aplica. Si manda SQL directo a la BBDD, no.
+
+**Excepción aceptable:** `taskRepository.disassociateFromCategory` usa `@Modifying @Query` JPQL deliberadamente para hacer un `UPDATE` en masa (no un `DELETE`). Está bien: no está borrando entidades, está actualizando una FK a `null`.
+
 ### Entidades con soft delete
 - `Task`
 - `Category`
 
-`User` **no** tiene soft delete.
+`User` **no** tiene soft delete: no tiene columna `deleted_at`, ni `@SQLDelete`, ni `@SQLRestriction`. El ciclo de vida del user es distinto — GDPR (Right to be Forgotten) requiere hard delete real, no marcado lógico. Si en el futuro se añade un endpoint de cancelación de cuenta, será una operación separada del DELETE habitual.
 
 ### Disociación de tasks al borrar Category
 Antes de hacer soft delete de una categoría, el service llama a:
