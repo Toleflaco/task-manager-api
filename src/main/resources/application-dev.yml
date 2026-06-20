@@ -10,6 +10,11 @@ spring:
     hikari:
       maximum-pool-size: 5
       minimum-idle: 1
+  # Conexión a MongoDB Atlas (cluster M0 free tier, AWS Ireland).
+  # Caso de uso: activity log / audit trail.
+  data:
+    mongodb:
+      uri: mongodb+srv://taskmanager_app:${MONGODB_PASSWORD}@task-manager-cluster.dgu0fym.mongodb.net/taskmanager?retryWrites=true&w=majority&appName=task-manager-cluster
 
   # Flyway gestiona el schema desde el día 1.
   flyway:
@@ -54,3 +59,15 @@ logging:
     org.hibernate.orm.jdbc.bind: TRACE
     # Flyway: ver qué migraciones aplica en arranque.
     org.flywaydb: INFO
+
+# Actuator: desactivar health check de Mongo en dev.
+# Razón: en Spring Boot 4, el MongoHealthIndicator manda el comando
+# 'hello' contra la BBDD interna 'local', sobre la que el usuario
+# 'taskmanager_app' no tiene permisos (correcto por diseño). El check
+# falla con warning aunque la conexión está sana. En producción real
+# (Fase 9) se implementará un health check custom que apunte a la
+# BBDD de la aplicación.
+management:
+  health:
+    mongodb:
+      enabled: false
