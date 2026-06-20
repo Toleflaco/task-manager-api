@@ -7,9 +7,14 @@ import com.mtole.taskmanager.tasks.dto.TaskCreateRequest;
 import com.mtole.taskmanager.tasks.dto.TaskStatsResponse;
 import com.mtole.taskmanager.tasks.dto.TaskSummaryProjection;
 import com.mtole.taskmanager.tasks.dto.TaskUpdateRequest;
+import com.mtole.taskmanager.tasks.events.TaskCreatedEvent;
+import com.mtole.taskmanager.tasks.events.TaskDeletedEvent;
+import com.mtole.taskmanager.tasks.events.TaskStatusChangedEvent;
+import com.mtole.taskmanager.tasks.events.TaskUpdatedEvent;
 import com.mtole.taskmanager.users.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,6 +22,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
@@ -27,14 +33,20 @@ public class TaskService {
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
     private final TaskMapper taskMapper;
+    private final ApplicationEventPublisher eventPublisher;
     private static final Logger log = LoggerFactory.getLogger(TaskService.class);
 
-
-    public TaskService(TaskRepository taskRepository, CategoryRepository categoryRepository, UserRepository userRepository, TaskMapper taskMapper) {
+    public TaskService(
+            TaskRepository taskRepository,
+            CategoryRepository categoryRepository,
+            UserRepository userRepository,
+            TaskMapper taskMapper,
+            ApplicationEventPublisher eventPublisher) {
         this.taskRepository = taskRepository;
         this.categoryRepository = categoryRepository;
         this.userRepository = userRepository;
         this.taskMapper = taskMapper;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -52,6 +64,16 @@ public class TaskService {
 
         Task saved = taskRepository.save(entity);
         log.info("Task created with id={}", saved.getId());
+
+        eventPublisher.publishEvent(new TaskCreatedEvent(
+                saved.getId(),
+                currentUserId,
+                saved.getTitle(),
+                saved.getStatus().name(),
+                saved.getCategory() != null ? saved.getCategory().getId() : null,
+                Instant.now()
+        ));
+
         return saved;
     }
 
@@ -61,7 +83,6 @@ public class TaskService {
         Task existing = taskRepository.findByIdAndUserId(id, currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task with id=" + id + " not found"));
 
-        // Optimistic lock check manual
         if (request.version() != null && !request.version().equals(existing.getVersion())) {
             throw new OptimisticLockingFailureException(
                     "Task " + id + " was modified by another request"
@@ -74,9 +95,16 @@ public class TaskService {
         }
 
         taskMapper.updateFromRequest(request, existing);
-        existing.setCategory(category);// Explícito permite desasignar con category = null
+        existing.setCategory(category);
         Task saved = taskRepository.save(existing);
         log.info("Task updated with id={}", saved.getId());
+
+        eventPublisher.publishEvent(new TaskUpdatedEvent(
+                saved.getId(),
+                currentUserId,
+                Instant.now()
+        ));
+
         return saved;
     }
 
@@ -93,6 +121,15 @@ public class TaskService {
         existing.setCompletedAt(OffsetDateTime.now(ZoneOffset.UTC));
         Task saved = taskRepository.save(existing);
         log.info("Task completed with id={}", saved.getId());
+
+        eventPublisher.publishEvent(new TaskStatusChangedEvent(
+                saved.getId(),
+                currentUserId,
+                currentStatus.name(),
+                TaskStatus.COMPLETED.name(),
+                Instant.now()
+        ));
+
         return saved;
     }
 
@@ -109,8 +146,16 @@ public class TaskService {
         existing.setStatus(TaskStatus.CANCELLED);
         Task saved = taskRepository.save(existing);
         log.info("Task cancelled with id={}", saved.getId());
-        return saved;
 
+        eventPublisher.publishEvent(new TaskStatusChangedEvent(
+                saved.getId(),
+                currentUserId,
+                currentStatus.name(),
+                TaskStatus.CANCELLED.name(),
+                Instant.now()
+        ));
+
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -139,23 +184,34 @@ public class TaskService {
         return taskRepository.findByIdAndUserId(id, currentUserId);
     }
 
-
     @Transactional
     public boolean deleteById(Long id, Long currentUserId) {
         log.info("Deleting task with id={}", id);
-        long deleted = taskRepository.deleteByIdAndUserId(id, currentUserId);
-        if (deleted > 0) {
-            log.info("Deleted task id={}", id);
-            return true;
-        } else {
+        Optional<Task> existing = taskRepository.findByIdAndUserId(id, currentUserId);
+        if (existing.isEmpty()) {
             log.warn("Task with id={} not found or not owned by user={}", id, currentUserId);
             return false;
         }
+        Task task = existing.get();
+        String title = task.getTitle();
+        String status = task.getStatus().name();
+
+        taskRepository.delete(task);
+        log.info("Deleted task id={}", id);
+
+        eventPublisher.publishEvent(new TaskDeletedEvent(
+                id,
+                currentUserId,
+                title,
+                status,
+                Instant.now()
+        ));
+
+        return true;
     }
 
     @Transactional(readOnly = true)
     public TaskStatsResponse getStats(Long currentUserId) {
         return taskRepository.findStatsByUserId(currentUserId);
     }
-
 }

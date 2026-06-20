@@ -1,17 +1,21 @@
 package com.mtole.taskmanager.categories;
 
 import com.mtole.taskmanager.categories.dto.CategoryCreateRequest;
+import com.mtole.taskmanager.categories.events.CategoryCreatedEvent;
+import com.mtole.taskmanager.categories.events.CategoryDeletedEvent;
+import com.mtole.taskmanager.categories.events.CategoryUpdatedEvent;
 import com.mtole.taskmanager.common.ResourceNotFoundException;
 import com.mtole.taskmanager.tasks.TaskRepository;
 import com.mtole.taskmanager.users.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.time.Instant;
 import java.util.Optional;
 
 @Service
@@ -20,13 +24,20 @@ public class CategoryService {
     private final CategoryMapper categoryMapper;
     private final UserRepository userRepository;
     private final TaskRepository taskRepository;
+    private final ApplicationEventPublisher eventPublisher;
     private static final Logger log = LoggerFactory.getLogger(CategoryService.class);
 
-    public CategoryService(CategoryRepository categoryRepository, CategoryMapper categoryMapper, UserRepository userRepository, TaskRepository taskRepository) {
+    public CategoryService(
+            CategoryRepository categoryRepository,
+            CategoryMapper categoryMapper,
+            UserRepository userRepository,
+            TaskRepository taskRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.categoryRepository = categoryRepository;
         this.categoryMapper = categoryMapper;
         this.userRepository = userRepository;
         this.taskRepository = taskRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -36,6 +47,14 @@ public class CategoryService {
         entity.setUser(userRepository.getReferenceById(currentUserId));
         Category saved = categoryRepository.save(entity);
         log.info("Created category with id={}", saved.getId());
+
+        eventPublisher.publishEvent(new CategoryCreatedEvent(
+                saved.getId(),
+                currentUserId,
+                saved.getName(),
+                Instant.now()
+        ));
+
         return saved;
     }
 
@@ -48,20 +67,28 @@ public class CategoryService {
         categoryMapper.updateFromRequest(request, existing);
         Category saved = categoryRepository.save(existing);
         log.info("Updated category with id={}", saved.getId());
-        return saved;
 
+        eventPublisher.publishEvent(new CategoryUpdatedEvent(
+                saved.getId(),
+                currentUserId,
+                Instant.now()
+        ));
+
+        return saved;
     }
+
     @Transactional(readOnly = true)
     public Optional<Category> findById(Long id, Long currentUserId) {
         return categoryRepository.findByIdAndUserId(id, currentUserId);
     }
+
     @Transactional(readOnly = true)
     public Page<Category> findAll(Long currentUserId, Pageable pageable) {
         return categoryRepository.findAllByUserId(currentUserId, pageable);
     }
+
     @Transactional(readOnly = true)
     public long countAll(Long currentUserId) {
-
         return categoryRepository.countByUserId(currentUserId);
     }
 
@@ -69,16 +96,25 @@ public class CategoryService {
     public boolean deleteById(Long id, Long currentUserId) {
         log.info("Deleting category with id={}", id);
 
-        taskRepository.disassociateFromCategory(id);
-        long deleted = categoryRepository.deleteByIdAndUserId(id, currentUserId);
-        if (deleted > 0) {
-            log.info("Deleted category id={}", id);
-            return true;
-        } else {
+        Optional<Category> existing = categoryRepository.findByIdAndUserId(id, currentUserId);
+        if (existing.isEmpty()) {
             log.warn("Category with id={} not found or not owned by user={}", id, currentUserId);
             return false;
         }
+        Category category = existing.get();
+        String name = category.getName();
+
+        taskRepository.disassociateFromCategory(id);
+        categoryRepository.delete(category);
+        log.info("Deleted category id={}", id);
+
+        eventPublisher.publishEvent(new CategoryDeletedEvent(
+                id,
+                currentUserId,
+                name,
+                Instant.now()
+        ));
+
+        return true;
     }
 }
-
-

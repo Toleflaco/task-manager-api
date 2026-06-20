@@ -17,5 +17,5 @@ import org.springframework.stereotype.Repository;
  */
 
 @Repository
-public interface ActivityEventRepository extends MongoRepository<ActivityEvent,String> {
+public interface ActivityEventRepository extends MongoRepository<ActivityEvent,String>,ActivityEventRepositoryCustom {
 }
