@@ -1,6 +1,7 @@
 package com.mtole.taskmanager.activity;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
@@ -23,6 +24,10 @@ import java.util.Map;
  *   o se eliminan tipos de acción.
  */
 @Document(collection = "activity_events")
+@CompoundIndex(
+        name = "userId_1_timestamp_-1",
+        def = "{'userId': 1, 'timestamp': -1}"
+)
 public class ActivityEvent {
 
     @Id

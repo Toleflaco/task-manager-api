@@ -15,7 +15,8 @@ spring:
   data:
     mongodb:
       uri: mongodb+srv://taskmanager_app:${MONGODB_PASSWORD}@task-manager-cluster.dgu0fym.mongodb.net/taskmanager?retryWrites=true&w=majority&appName=task-manager-cluster
-
+      database: taskmanager
+      auto-index-creation: true
   # Flyway gestiona el schema desde el día 1.
   flyway:
     enabled: true
