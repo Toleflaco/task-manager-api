@@ -19,6 +19,28 @@ Persistence is currently in-memory. The design is structured so that
 swapping the repositories for JPA-backed implementations in Phase 6
 requires no changes to services or controllers.
 
+
+## Architecture
+
+This project uses **polyglot persistence**:
+
+- **PostgreSQL** is the primary store for transactional data: `users`,
+  `tasks`, `categories`. The domain is inherently relational and
+  benefits from engine-level referential integrity, schema enforcement
+  and routine multi-row transactions.
+- **MongoDB** stores the activity audit log (`activity_events`
+  collection). The audit log is append-only, has heterogeneous
+  per-event payloads, and is queried by time range per user — a shape
+  where MongoDB's schema flexibility and write profile fit better than
+  a relational table.
+
+The full rationale, trade-offs accepted and conditions under which the
+decision would be revisited are documented in
+[`docs/adr-001-polyglot-persistence.md`](docs/adr-001-polyglot-persistence.md).
+
+
+
+
 ## Tech stack
 
 - **Java 21** — modern language features (records, pattern matching, virtual threads support).
