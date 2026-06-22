@@ -1,6 +1,7 @@
 package com.mtole.taskmanager.activity;
 
 import com.mtole.taskmanager.activity.dto.ActivityEventResponse;
+import com.mtole.taskmanager.activity.dto.ActivityStatsResponse;
 import com.mtole.taskmanager.common.dto.PagedResponse;
 import com.mtole.taskmanager.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -71,4 +72,26 @@ public class ActivityController {
                 page.getTotalElements()
         );
     }
+
+    @Operation(summary = "Activity statistics for current user",
+            description = "Aggregated statistics for the audit log, with optional date range filtering")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Statistics computed"),
+            @ApiResponse(responseCode = "401", description = "Not authenticated")
+    })
+    @GetMapping("/stats")
+    public ActivityStatsResponse getStats(
+            @Parameter(description = "Filter by start timestamp (inclusive)")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+
+            @Parameter(description = "Filter by end timestamp (inclusive)")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
+    ) {
+        Long currentUserId = SecurityUtils.currentUserId();
+        ActivityStatsFilter filter = new ActivityStatsFilter(from, to);
+        return repository.getStats(currentUserId, filter);
+    }
 }
+
