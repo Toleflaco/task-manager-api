@@ -101,4 +101,36 @@ public class AuthServiceTest {
 
     }
 
+    @Test
+    @DisplayName("Refresh with valid token returns RefreshTokenResponse and revokes token")
+    void refresh_withValidToken_returnsRefreshTokenResponseAndRevokesToken() {
+        // Arrange
+        User existingUser = aUser().withId(1L).build();
+        UUID familyId = UUID.randomUUID();
+        String tokenString = "fake-jwt-refresh-token";
+        String accessTokenString = "fake-jwt-access-token";
+        RefreshToken validRefreshToken = aRefreshToken().withToken(tokenString).withUser(existingUser).withFamilyId(familyId).build();
+        given(refreshTokenRepository.findByToken(tokenString)).willReturn(Optional.of(validRefreshToken));
+        given(jwtService.generateAccessToken(1L)).willReturn(accessTokenString);
+        given(jwtProperties.refreshExpiration()).willReturn(Duration.ofDays(7));
+        given(jwtProperties.accessExpiration()).willReturn(Duration.ofMinutes(15));
+
+        // Act
+
+        RefreshTokenResponse response = authService.refresh(new RefreshTokenRequest(tokenString));
+
+        // Asserts
+
+        assertThat(response).isNotNull();
+        assertThat(response.accessToken()).isEqualTo(accessTokenString);
+        assertThat(response.tokenType()).isEqualTo("Bearer");
+        assertThat(response.expiresIn()).isEqualTo(Duration.ofMinutes(15).toSeconds());
+
+        assertThat(validRefreshToken.isRevoked()).isTrue();
+        // Then
+        then(jwtService).should().generateAccessToken(1L);
+        then(refreshTokenRepository).should().save(any(RefreshToken.class));
+
+
+    }
 }
