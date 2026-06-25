@@ -9,7 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -18,6 +19,7 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.mtole.taskmanager.auth.RefreshTokenTestDataBuilder.aRefreshToken;
 import static com.mtole.taskmanager.users.UserTestDataBuilder.aUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -57,7 +59,7 @@ public class AuthServiceTest {
         //given(refreshTokenRepository.save()).willReturn()
 
         // Act
-        LoginResponse response = authService.login(new LoginRequest("alice@test.com","password-hardcored"));
+        LoginResponse response = authService.login(new LoginRequest("alice@test.com", "password-hardcored"));
 
         // Assert
         assertThat(response).isNotNull();
@@ -68,6 +70,34 @@ public class AuthServiceTest {
         then(authenticationManager).should().authenticate(any(UsernamePasswordAuthenticationToken.class));
         then(refreshTokenRepository).should().save(any(RefreshToken.class));
         then(jwtService).should().generateAccessToken(1L);
+
+    }
+
+    @Test
+    @DisplayName("Refresh with revoked token revokes the family and throws")
+    void refresh_withRevokedToken_revokesFamilyAndThrowsException() {
+
+        // Arrange
+
+        User existingUser = aUser().withId(1L).build();
+        UUID familyId = UUID.randomUUID();
+        String tokenString = "fake-jwt-refresh-token";
+        RefreshToken refreshToken = aRefreshToken()
+                .withToken(tokenString)
+                .withFamilyId(familyId)
+                .withUser(existingUser)
+                .withRevoked(true)
+                .build();
+        given(refreshTokenRepository.findByToken(tokenString)).willReturn(Optional.of(refreshToken));
+
+        // Act + Assert (excepción)
+        assertThatThrownBy(() -> authService.refresh(new RefreshTokenRequest(tokenString)))
+                .isInstanceOf(InvalidRefreshTokenException.class)
+                .hasMessage("Invalid refresh token");
+
+
+        // Then (efecto secundario)
+        then(refreshTokenRepository).should().revokeFamily(familyId);
 
     }
 
