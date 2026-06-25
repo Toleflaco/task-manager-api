@@ -16,6 +16,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -130,7 +132,25 @@ public class AuthServiceTest {
         // Then
         then(jwtService).should().generateAccessToken(1L);
         then(refreshTokenRepository).should().save(any(RefreshToken.class));
+    }
+    @Test
+    @DisplayName("Refresh with expired token throws Exception")
+    void refresh_withExpiredToken_throwsException() {
 
+        // Arrange
+        String token = "fake-jwt-expired-token";
+        RefreshToken expiredToken = aRefreshToken()
+                .withToken(token)
+                .withExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(1))
+                .build();
+
+        given(refreshTokenRepository.findByToken(token)).willReturn(Optional.of(expiredToken));
+
+        // Act + Asserts
+
+        assertThatThrownBy(() -> authService.refresh(new RefreshTokenRequest(token)))
+                .isInstanceOf(InvalidRefreshTokenException.class)
+                .hasMessage("Invalid refresh token");
 
     }
 }
