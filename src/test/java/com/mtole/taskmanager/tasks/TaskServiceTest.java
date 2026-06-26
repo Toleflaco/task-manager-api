@@ -2,8 +2,10 @@ package com.mtole.taskmanager.tasks;
 
 import com.mtole.taskmanager.categories.Category;
 import com.mtole.taskmanager.categories.CategoryRepository;
+import com.mtole.taskmanager.common.ResourceNotFoundException;
 import com.mtole.taskmanager.tasks.dto.TaskCreateRequest;
 import com.mtole.taskmanager.tasks.events.TaskCreatedEvent;
+import com.mtole.taskmanager.tasks.events.TaskDeletedEvent;
 import com.mtole.taskmanager.users.User;
 import com.mtole.taskmanager.users.UserRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +23,7 @@ import static com.mtole.taskmanager.categories.CategoryTestDataBuilder.aCategory
 import static com.mtole.taskmanager.tasks.TaskTestDataBuilder.aTask;
 import static com.mtole.taskmanager.users.UserTestDataBuilder.aUser;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -101,7 +104,7 @@ public class TaskServiceTest {
 
         given(taskMapper.toEntity(request)).willReturn(task);
         given(userRepository.getReferenceById(currentUserId)).willReturn(existingUser);
-        given(categoryRepository.findByIdAndUserId(categoryId,currentUserId)).willReturn(Optional.of(existingCategory));
+        given(categoryRepository.findByIdAndUserId(categoryId, currentUserId)).willReturn(Optional.of(existingCategory));
         given(taskRepository.save(task)).willReturn(task);
 
         // Act
@@ -125,5 +128,77 @@ public class TaskServiceTest {
         assertThat(publishedEvent.status()).isEqualTo("PENDING");
         assertThat(publishedEvent.categoryId()).isEqualTo(categoryId);
     }
-}
 
+    @Test
+    @DisplayName("deletes task and publishes deleted event when task existes")
+    void deleteById_withExistingTask_deletesTaskAndPublishesDeletedEvent() {
+
+        // Arrange
+        Long currentUserId = 1L;
+        Long taskId = 42L;
+        User existingUser = aUser().withId(currentUserId).build();
+        Task existingTask = aTask().withId(taskId).withUser(existingUser).build();
+        String title = existingTask.getTitle();
+        String status = existingTask.getStatus().name();
+
+        given(taskRepository.findByIdAndUserId(taskId, currentUserId)).willReturn(Optional.of(existingTask));
+
+        // Act
+        boolean result = taskService.deleteById(taskId, currentUserId);
+
+        // Asserts
+
+        assertThat(result).isTrue();
+        ArgumentCaptor<TaskDeletedEvent> eventCaptor = ArgumentCaptor.forClass(TaskDeletedEvent.class);
+
+        then(applicationEventPublisher).should().publishEvent(eventCaptor.capture());
+
+        TaskDeletedEvent deletedEvent = eventCaptor.getValue();
+        assertThat(deletedEvent.taskId()).isEqualTo(taskId);
+        assertThat(deletedEvent.userId()).isEqualTo(currentUserId);
+        assertThat(deletedEvent.title()).isEqualTo(title);
+        assertThat(deletedEvent.status()).isEqualTo(status);
+
+    }
+
+    @Test
+    @DisplayName("returns false and publishes no event when task does not exist")
+    void deleteById_withNonExistingTask_returnsFalseAndPublishesNoEvent() {
+
+        // Arrange
+
+        Long currentUserId = 1L;
+        Long taskId = 99L;
+
+        given(taskRepository.findByIdAndUserId(taskId, currentUserId)).willReturn(Optional.empty());
+
+        // Act
+        boolean result = taskService.deleteById(taskId, currentUserId);
+
+        // Asserts
+        assertThat(result).isFalse();
+        then(applicationEventPublisher).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("throws resource not found exception and publishes no event when task not found")
+    void complete_withNonExistingTask_throwsResourceNotFoundExceptionAndPublishesNoEvent() {
+
+        // Arrange
+
+        Long currentUserId = 1L;
+        Long taskId = 99L;
+
+        given(taskRepository.findByIdAndUserId(taskId, currentUserId)).willReturn(Optional.empty());
+
+        // Act + Assert
+        assertThatThrownBy(() -> taskService.complete(taskId, currentUserId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Task with id=" + taskId + " not found");
+
+        // Then (efecto secundario)
+
+        then(applicationEventPublisher).shouldHaveNoInteractions();
+
+    }
+}
