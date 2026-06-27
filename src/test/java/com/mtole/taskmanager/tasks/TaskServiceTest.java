@@ -5,6 +5,7 @@ import com.mtole.taskmanager.categories.CategoryRepository;
 import com.mtole.taskmanager.common.ResourceNotFoundException;
 import com.mtole.taskmanager.tasks.dto.TaskCreateRequest;
 import com.mtole.taskmanager.tasks.dto.TaskStatsResponse;
+import com.mtole.taskmanager.tasks.dto.TaskSummaryProjection;
 import com.mtole.taskmanager.tasks.dto.TaskUpdateRequest;
 import com.mtole.taskmanager.tasks.events.TaskCreatedEvent;
 import com.mtole.taskmanager.tasks.events.TaskDeletedEvent;
@@ -21,9 +22,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static com.mtole.taskmanager.categories.CategoryTestDataBuilder.aCategory;
@@ -32,8 +39,10 @@ import static com.mtole.taskmanager.users.UserTestDataBuilder.aUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TaskService")
@@ -465,7 +474,7 @@ public class TaskServiceTest {
     }
 
     @Test
-    @DisplayName("gets stats by user id returns stats in taskstatsresponse")
+    @DisplayName("gets stats by user id returns stats in task stats response")
     void getStats_withUserId_returnsStats() {
 
         // Arrange
@@ -479,7 +488,28 @@ public class TaskServiceTest {
 
         // Asserts
         assertThat(result).isSameAs(taskStatsResponse);
-
     }
 
+
+    @Test
+    @DisplayName("finds all tasks and returns page when filter is empty")
+    void findAll_withAllFiltersNull_returnsPageFromRepository() {
+
+        // Arrange
+        Long currentUserId = 1L;
+        TaskFilter filter = new TaskFilter(null, null, null);
+        Pageable pageable = PageRequest.of(0, 10);
+
+        TaskSummaryProjection mockProjection = mock(TaskSummaryProjection.class);
+        Page<TaskSummaryProjection> expectedPage = new PageImpl<>(List.of(mockProjection));
+
+        given(taskRepository.findAllSummariesBy(any(Specification.class), eq(pageable)))
+                .willReturn(expectedPage);
+
+        // Act
+        Page<TaskSummaryProjection> result = taskService.findAll(currentUserId, filter, pageable);
+
+        // Assert
+        assertThat(result).isEqualTo(expectedPage);
+    }
 }
