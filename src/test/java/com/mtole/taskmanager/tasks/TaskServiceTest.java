@@ -4,6 +4,7 @@ import com.mtole.taskmanager.categories.Category;
 import com.mtole.taskmanager.categories.CategoryRepository;
 import com.mtole.taskmanager.common.ResourceNotFoundException;
 import com.mtole.taskmanager.tasks.dto.TaskCreateRequest;
+import com.mtole.taskmanager.tasks.dto.TaskStatsResponse;
 import com.mtole.taskmanager.tasks.dto.TaskUpdateRequest;
 import com.mtole.taskmanager.tasks.events.TaskCreatedEvent;
 import com.mtole.taskmanager.tasks.events.TaskDeletedEvent;
@@ -22,6 +23,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.mtole.taskmanager.categories.CategoryTestDataBuilder.aCategory;
@@ -413,7 +415,7 @@ public class TaskServiceTest {
         // Act
         Task result = taskService.update(taskId, request, currentUserId);
 
-         // Assert
+        // Assert
         assertThat(result).isSameAs(existingTask);  // save devuelve la misma instancia
         assertThat(result.getCategory()).isEqualTo(existingCategory);  // el servicio asignó la categoría
 
@@ -424,7 +426,60 @@ public class TaskServiceTest {
         TaskUpdatedEvent event = eventCaptor.getValue();
         assertThat(event.taskId()).isEqualTo(taskId);
         assertThat(event.userId()).isEqualTo(currentUserId);
+    }
 
+    @Test
+    @DisplayName("finds task by id and returns it when task exists")
+    void findById_withTaskExisting_returnsTask() {
+
+        // Arrange
+        Long currentUserId = 1L;
+        Long taskId = 99L;
+        Task existingTask = aTask().withId(taskId).build();
+
+        given(taskRepository.findByIdAndUserId(taskId, currentUserId)).willReturn(Optional.of(existingTask));
+
+        // Act
+        Optional<Task> result = taskService.findById(taskId, currentUserId);
+
+        // Asserts
+        assertThat(result).contains(existingTask);
+    }
+
+    @Test
+    @DisplayName("finds task by id and returns empty optional when task does not exist")
+    void findById_withNonExistingTask_returnsEmptyOptional() {
+
+        // Arrange
+        Long currentUserId = 1L;
+        Long taskId = 99L;
+
+        given(taskRepository.findByIdAndUserId(taskId, currentUserId)).willReturn(Optional.empty());
+
+        // Act
+        Optional<Task> result = taskService.findById(taskId, currentUserId);
+
+        // Asserts
+        assertThat(result).isEmpty();
 
     }
+
+    @Test
+    @DisplayName("gets stats by user id returns stats in taskstatsresponse")
+    void getStats_withUserId_returnsStats() {
+
+        // Arrange
+        Long currentUserId = 1L;
+        TaskStatsResponse taskStatsResponse = new TaskStatsResponse(1L,1L,2L,3L,5L);
+
+        given(taskRepository.findStatsByUserId(currentUserId)).willReturn(taskStatsResponse);
+
+        // Act
+        TaskStatsResponse result = taskService.getStats(currentUserId);
+
+        // Asserts
+        assertThat(result).isSameAs(taskStatsResponse);
+
+    }
+
 }
