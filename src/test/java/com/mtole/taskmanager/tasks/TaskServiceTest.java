@@ -17,7 +17,6 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
-import org.hibernate.annotations.FilterDefs;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -498,14 +497,11 @@ public class TaskServiceTest {
     @Test
     @DisplayName("finds all tasks and returns page when filter is empty")
     void findAll_withAllFiltersNull_returnsPageFromRepository() {
-
         // Arrange
         Long currentUserId = 1L;
         TaskFilter filter = new TaskFilter(null, null, null);
         Pageable pageable = PageRequest.of(0, 10);
-
-        TaskSummaryProjection mockProjection = mock(TaskSummaryProjection.class);
-        Page<TaskSummaryProjection> expectedPage = new PageImpl<>(List.of(mockProjection));
+        Page<TaskSummaryProjection> expectedPage = expectedPageOfOne();
 
         given(taskRepository.findAllSummariesBy(any(Specification.class), eq(pageable)))
                 .willReturn(expectedPage);
@@ -513,7 +509,7 @@ public class TaskServiceTest {
         // Act
         Page<TaskSummaryProjection> result = taskService.findAll(currentUserId, filter, pageable);
 
-        // Assert
+        // Asserts
         assertThat(result).isEqualTo(expectedPage);
     }
 
@@ -523,11 +519,10 @@ public class TaskServiceTest {
 
         // Arrange
         Long currentUserId = 1L;
-        TaskFilter filter = new TaskFilter(TaskStatus.PENDING, null, null);
+        TaskFilter filter = new TaskFilter(TaskStatus.IN_PROGRESS, null, null);
         Pageable pageable = PageRequest.of(0, 10);
+        Page<TaskSummaryProjection> expectedPage = expectedPageOfOne();
 
-        TaskSummaryProjection mockProjection = mock(TaskSummaryProjection.class);
-        Page<TaskSummaryProjection> expectedPage = new PageImpl<>(List.of(mockProjection));
 
         ArgumentCaptor<Specification<Task>> specCaptor = ArgumentCaptor.forClass(Specification.class);
 
@@ -541,16 +536,12 @@ public class TaskServiceTest {
         assertThat(result).isEqualTo(expectedPage);
 
         then(taskRepository).should().findAllSummariesBy(specCaptor.capture(), eq(pageable));
-        Specification<Task> capturedSpec = specCaptor.getValue();
+        CriteriaMocks mocks = exerciseSpec(specCaptor.getValue());
 
-        Root<Task> root = mock(Root.class, RETURNS_DEEP_STUBS);
-        CriteriaQuery<?> query = mock(CriteriaQuery.class);
-        CriteriaBuilder cb = mock(CriteriaBuilder.class, RETURNS_DEEP_STUBS);
+        then(mocks.cb()).should().equal(any(), eq(currentUserId));
+        then(mocks.cb()).should().equal(any(), eq(TaskStatus.IN_PROGRESS));
+        then(mocks.cb()).should().and(any(Predicate.class), any(Predicate.class));
 
-        capturedSpec.toPredicate(root, query, cb);
-        then(cb).should().equal(any(), eq(currentUserId));
-        then(cb).should().equal(any(), eq(TaskStatus.PENDING));
-        then(cb).should().and(any(Predicate.class), any(Predicate.class));
     }
 
     @Test
@@ -561,9 +552,7 @@ public class TaskServiceTest {
         Long currentUserId = 1L;
         TaskFilter filter = new TaskFilter(null, Priority.HIGH, null);
         Pageable pageable = PageRequest.of(0, 10);
-
-        TaskSummaryProjection mockProjection = mock(TaskSummaryProjection.class);
-        Page<TaskSummaryProjection> expectedPage = new PageImpl<>(List.of(mockProjection));
+        Page<TaskSummaryProjection> expectedPage = expectedPageOfOne();
 
         ArgumentCaptor<Specification<Task>> specCaptor = ArgumentCaptor.forClass(Specification.class);
 
@@ -576,17 +565,14 @@ public class TaskServiceTest {
         // Asserts
         assertThat(result).isEqualTo(expectedPage);
 
+
         then(taskRepository).should().findAllSummariesBy(specCaptor.capture(), eq(pageable));
-        Specification<Task> capturedSpec = specCaptor.getValue();
+        CriteriaMocks mocks = exerciseSpec(specCaptor.getValue());
 
-        Root<Task> root = mock(Root.class, RETURNS_DEEP_STUBS);
-        CriteriaQuery<?> query = mock(CriteriaQuery.class);
-        CriteriaBuilder cb = mock(CriteriaBuilder.class, RETURNS_DEEP_STUBS);
 
-        capturedSpec.toPredicate(root, query, cb);
-        then(cb).should().equal(any(), eq(currentUserId));
-        then(cb).should().equal(any(), eq(Priority.HIGH));
-        then(cb).should().and(any(Predicate.class), any(Predicate.class));
+        then(mocks.cb()).should().equal(any(), eq(currentUserId));
+        then(mocks.cb()).should().equal(any(), eq(Priority.HIGH));
+        then(mocks.cb()).should().and(any(Predicate.class), any(Predicate.class));
     }
 
     @Test
@@ -596,9 +582,8 @@ public class TaskServiceTest {
         Long currentUserId = 1L;
         TaskFilter taskFilter = new TaskFilter(null, null, "Trabajo");
         Pageable pageable = PageRequest.of(0, 10);
+        Page<TaskSummaryProjection> expectedPage = expectedPageOfOne();
 
-        TaskSummaryProjection mockProjection = mock(TaskSummaryProjection.class);
-        Page<TaskSummaryProjection> expectedPage = new PageImpl<>(List.of(mockProjection));
 
         ArgumentCaptor<Specification<Task>> specCaptor = ArgumentCaptor.forClass(Specification.class);
 
@@ -610,19 +595,16 @@ public class TaskServiceTest {
 
         //Assert
         assertThat(result).isEqualTo(expectedPage);
+
+
         then(taskRepository).should().findAllSummariesBy(specCaptor.capture(), eq(pageable));
-        Specification<Task> capturedSpec = specCaptor.getValue();
+        CriteriaMocks mocks = exerciseSpec(specCaptor.getValue());
 
-        Root<Task> root = mock(Root.class, RETURNS_DEEP_STUBS);
-        CriteriaQuery<?> query = mock(CriteriaQuery.class);
-        CriteriaBuilder cb = mock(CriteriaBuilder.class, RETURNS_DEEP_STUBS);
 
-        capturedSpec.toPredicate(root, query, cb);
-
-        then(cb).should().equal(any(), eq(currentUserId));
-        then(root).should().join("category");
-        then(cb).should().equal(any(), eq("Trabajo"));
-        then(cb).should().and(any(Predicate.class), any(Predicate.class));
+        then(mocks.cb()).should().equal(any(), eq(currentUserId));
+        then(mocks.root()).should().join("category");
+        then(mocks.cb()).should().equal(any(), eq("Trabajo"));
+        then(mocks.cb()).should().and(any(Predicate.class), any(Predicate.class));
     }
 
     @Test
@@ -632,9 +614,7 @@ public class TaskServiceTest {
         Long currentUserId = 1L;
         TaskFilter taskFilter = new TaskFilter(TaskStatus.IN_PROGRESS, Priority.LOW, "Trabajo");
         Pageable pageable = PageRequest.of(0, 10);
-
-        TaskSummaryProjection mockProjection = mock(TaskSummaryProjection.class);
-        Page<TaskSummaryProjection> expectedPage = new PageImpl<>(List.of(mockProjection));
+        Page<TaskSummaryProjection> expectedPage = expectedPageOfOne();
 
         ArgumentCaptor<Specification<Task>> specCaptor = ArgumentCaptor.forClass(Specification.class);
 
@@ -646,20 +626,18 @@ public class TaskServiceTest {
         // Asserts
         assertThat(result).isEqualTo(expectedPage);
 
+
         then(taskRepository).should().findAllSummariesBy(specCaptor.capture(), eq(pageable));
-        Specification<Task> capturedSpec = specCaptor.getValue();
+        CriteriaMocks mocks = exerciseSpec(specCaptor.getValue());
 
-        Root<Task> root = mock(Root.class, RETURNS_DEEP_STUBS);
-        CriteriaQuery<?> query = mock(CriteriaQuery.class);
-        CriteriaBuilder cb = mock(CriteriaBuilder.class, RETURNS_DEEP_STUBS);
 
-        capturedSpec.toPredicate(root, query, cb);
-        then(cb).should().equal(any(), eq(currentUserId));
-        then(root).should().join("category");
-        then(cb).should().equal(any(), eq(TaskStatus.IN_PROGRESS));
-        then(cb).should().equal(any(), eq(Priority.LOW));
-        then(cb).should().equal(any(), eq("Trabajo"));
-        then(cb).should(times(3)).and(any(Predicate.class), any(Predicate.class));
+
+        then(mocks.root()).should().join("category");
+        then(mocks.cb()).should().equal(any(), eq(TaskStatus.IN_PROGRESS));
+        then(mocks.cb()).should().equal(any(), eq(Priority.LOW));
+        then(mocks.cb()).should().equal(any(), eq(currentUserId));
+        then(mocks.cb()).should().equal(any(), eq("Trabajo"));
+        then(mocks.cb()).should(times(3)).and(any(Predicate.class), any(Predicate.class));
     }
 
     @Test
@@ -669,9 +647,7 @@ public class TaskServiceTest {
         Long currentUserId = 1L;
         TaskFilter taskFilter = new TaskFilter(null, null, "  ");
         Pageable pageable = PageRequest.of(0, 10);
-
-        TaskSummaryProjection mockProjection = mock(TaskSummaryProjection.class);
-        Page<TaskSummaryProjection> expectedPage = new PageImpl<>(List.of(mockProjection));
+        Page<TaskSummaryProjection> expectedPage = expectedPageOfOne();
 
         ArgumentCaptor<Specification<Task>> specCaptor = ArgumentCaptor.forClass(Specification.class);
 
@@ -683,15 +659,32 @@ public class TaskServiceTest {
         // Asserts
         assertThat(result).isEqualTo(expectedPage);
         then(taskRepository).should().findAllSummariesBy(specCaptor.capture(), eq(pageable));
-        Specification<Task> capturedSpec = specCaptor.getValue();
+        CriteriaMocks mocks = exerciseSpec(specCaptor.getValue());
 
+
+        then(mocks.cb()).should().equal(any(), eq(currentUserId));
+        then(mocks.root()).should(never()).join(anyString());
+        then(mocks.cb()).should(never()).equal(any(), eq("  "));
+    }
+
+    private record CriteriaMocks(
+            Root<Task> root,
+            CriteriaQuery<?> query,
+            CriteriaBuilder cb
+    ) {
+    }
+
+    private Page<TaskSummaryProjection> expectedPageOfOne() {
+        TaskSummaryProjection mockProjection = mock(TaskSummaryProjection.class);
+        return new PageImpl<>(List.of(mockProjection));
+    }
+
+    @SuppressWarnings("unchecked")
+    private CriteriaMocks exerciseSpec(Specification<Task> spec) {
         Root<Task> root = mock(Root.class, RETURNS_DEEP_STUBS);
         CriteriaQuery<?> query = mock(CriteriaQuery.class);
         CriteriaBuilder cb = mock(CriteriaBuilder.class, RETURNS_DEEP_STUBS);
-
-        capturedSpec.toPredicate(root, query, cb);
-        then(cb).should().equal(any(), eq(currentUserId));
-        then(root).should(never()).join(anyString());
-        then(cb).should(never()).equal(any(), eq("  "));
+        spec.toPredicate(root, query, cb);
+        return new CriteriaMocks(root, query, cb);
     }
 }
