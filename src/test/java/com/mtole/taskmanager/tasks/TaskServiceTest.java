@@ -13,6 +13,11 @@ import com.mtole.taskmanager.tasks.events.TaskStatusChangedEvent;
 import com.mtole.taskmanager.tasks.events.TaskUpdatedEvent;
 import com.mtole.taskmanager.users.User;
 import com.mtole.taskmanager.users.UserRepository;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import org.hibernate.annotations.FilterDefs;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,7 +34,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -42,7 +46,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TaskService")
@@ -479,7 +483,7 @@ public class TaskServiceTest {
 
         // Arrange
         Long currentUserId = 1L;
-        TaskStatsResponse taskStatsResponse = new TaskStatsResponse(1L,1L,2L,3L,5L);
+        TaskStatsResponse taskStatsResponse = new TaskStatsResponse(1L, 1L, 2L, 3L, 5L);
 
         given(taskRepository.findStatsByUserId(currentUserId)).willReturn(taskStatsResponse);
 
@@ -511,5 +515,183 @@ public class TaskServiceTest {
 
         // Assert
         assertThat(result).isEqualTo(expectedPage);
+    }
+
+    @Test
+    @DisplayName("finds all tasks and returns page when filter has status")
+    void findAll_withStatusFilter_returnsFilteredPage() {
+
+        // Arrange
+        Long currentUserId = 1L;
+        TaskFilter filter = new TaskFilter(TaskStatus.PENDING, null, null);
+        Pageable pageable = PageRequest.of(0, 10);
+
+        TaskSummaryProjection mockProjection = mock(TaskSummaryProjection.class);
+        Page<TaskSummaryProjection> expectedPage = new PageImpl<>(List.of(mockProjection));
+
+        ArgumentCaptor<Specification<Task>> specCaptor = ArgumentCaptor.forClass(Specification.class);
+
+        given(taskRepository.findAllSummariesBy(any(Specification.class), eq(pageable)))
+                .willReturn(expectedPage);
+
+        // Act
+        Page<TaskSummaryProjection> result = taskService.findAll(currentUserId, filter, pageable);
+
+        // Assert
+        assertThat(result).isEqualTo(expectedPage);
+
+        then(taskRepository).should().findAllSummariesBy(specCaptor.capture(), eq(pageable));
+        Specification<Task> capturedSpec = specCaptor.getValue();
+
+        Root<Task> root = mock(Root.class, RETURNS_DEEP_STUBS);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        CriteriaBuilder cb = mock(CriteriaBuilder.class, RETURNS_DEEP_STUBS);
+
+        capturedSpec.toPredicate(root, query, cb);
+        then(cb).should().equal(any(), eq(currentUserId));
+        then(cb).should().equal(any(), eq(TaskStatus.PENDING));
+        then(cb).should().and(any(Predicate.class), any(Predicate.class));
+    }
+
+    @Test
+    @DisplayName("finds all tasks and returns page when filter has priority")
+    void findAll_withPriorityFilter_returnsFilteredPage() {
+
+        // Arrange
+        Long currentUserId = 1L;
+        TaskFilter filter = new TaskFilter(null, Priority.HIGH, null);
+        Pageable pageable = PageRequest.of(0, 10);
+
+        TaskSummaryProjection mockProjection = mock(TaskSummaryProjection.class);
+        Page<TaskSummaryProjection> expectedPage = new PageImpl<>(List.of(mockProjection));
+
+        ArgumentCaptor<Specification<Task>> specCaptor = ArgumentCaptor.forClass(Specification.class);
+
+        given(taskRepository.findAllSummariesBy(any(Specification.class), eq(pageable))).willReturn(expectedPage);
+
+
+        // Act
+        Page<TaskSummaryProjection> result = taskService.findAll(currentUserId, filter, pageable);
+
+        // Asserts
+        assertThat(result).isEqualTo(expectedPage);
+
+        then(taskRepository).should().findAllSummariesBy(specCaptor.capture(), eq(pageable));
+        Specification<Task> capturedSpec = specCaptor.getValue();
+
+        Root<Task> root = mock(Root.class, RETURNS_DEEP_STUBS);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        CriteriaBuilder cb = mock(CriteriaBuilder.class, RETURNS_DEEP_STUBS);
+
+        capturedSpec.toPredicate(root, query, cb);
+        then(cb).should().equal(any(), eq(currentUserId));
+        then(cb).should().equal(any(), eq(Priority.HIGH));
+        then(cb).should().and(any(Predicate.class), any(Predicate.class));
+    }
+
+    @Test
+    @DisplayName("find all tasks and returns page when filter has category name")
+    void findAll_withCategoryNameFilter_returnsFilteredPage() {
+        // Arrange
+        Long currentUserId = 1L;
+        TaskFilter taskFilter = new TaskFilter(null, null, "Trabajo");
+        Pageable pageable = PageRequest.of(0, 10);
+
+        TaskSummaryProjection mockProjection = mock(TaskSummaryProjection.class);
+        Page<TaskSummaryProjection> expectedPage = new PageImpl<>(List.of(mockProjection));
+
+        ArgumentCaptor<Specification<Task>> specCaptor = ArgumentCaptor.forClass(Specification.class);
+
+        given(taskRepository.findAllSummariesBy(any(Specification.class), eq(pageable))).willReturn(expectedPage);
+
+
+        // Act
+        Page<TaskSummaryProjection> result = taskService.findAll(currentUserId, taskFilter, pageable);
+
+        //Assert
+        assertThat(result).isEqualTo(expectedPage);
+        then(taskRepository).should().findAllSummariesBy(specCaptor.capture(), eq(pageable));
+        Specification<Task> capturedSpec = specCaptor.getValue();
+
+        Root<Task> root = mock(Root.class, RETURNS_DEEP_STUBS);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        CriteriaBuilder cb = mock(CriteriaBuilder.class, RETURNS_DEEP_STUBS);
+
+        capturedSpec.toPredicate(root, query, cb);
+
+        then(cb).should().equal(any(), eq(currentUserId));
+        then(root).should().join("category");
+        then(cb).should().equal(any(), eq("Trabajo"));
+        then(cb).should().and(any(Predicate.class), any(Predicate.class));
+    }
+
+    @Test
+    @DisplayName("find all tasks and returns page when filter has status, priority and category name")
+    void findAll_withAllFiltersActive_returnsFilteredPage() {
+        // Arrange
+        Long currentUserId = 1L;
+        TaskFilter taskFilter = new TaskFilter(TaskStatus.IN_PROGRESS, Priority.LOW, "Trabajo");
+        Pageable pageable = PageRequest.of(0, 10);
+
+        TaskSummaryProjection mockProjection = mock(TaskSummaryProjection.class);
+        Page<TaskSummaryProjection> expectedPage = new PageImpl<>(List.of(mockProjection));
+
+        ArgumentCaptor<Specification<Task>> specCaptor = ArgumentCaptor.forClass(Specification.class);
+
+        given(taskRepository.findAllSummariesBy(any(Specification.class), eq(pageable))).willReturn(expectedPage);
+
+        // Act
+        Page<TaskSummaryProjection> result = taskService.findAll(currentUserId, taskFilter, pageable);
+
+        // Asserts
+        assertThat(result).isEqualTo(expectedPage);
+
+        then(taskRepository).should().findAllSummariesBy(specCaptor.capture(), eq(pageable));
+        Specification<Task> capturedSpec = specCaptor.getValue();
+
+        Root<Task> root = mock(Root.class, RETURNS_DEEP_STUBS);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        CriteriaBuilder cb = mock(CriteriaBuilder.class, RETURNS_DEEP_STUBS);
+
+        capturedSpec.toPredicate(root, query, cb);
+        then(cb).should().equal(any(), eq(currentUserId));
+        then(root).should().join("category");
+        then(cb).should().equal(any(), eq(TaskStatus.IN_PROGRESS));
+        then(cb).should().equal(any(), eq(Priority.LOW));
+        then(cb).should().equal(any(), eq("Trabajo"));
+        then(cb).should(times(3)).and(any(Predicate.class), any(Predicate.class));
+    }
+
+    @Test
+    @DisplayName("find all tasks and returns page when filter has category name blank")
+    void findAll_withBlankCategoryName_ignoresCategoryNameFilter() {
+        // Arrange
+        Long currentUserId = 1L;
+        TaskFilter taskFilter = new TaskFilter(null, null, "  ");
+        Pageable pageable = PageRequest.of(0, 10);
+
+        TaskSummaryProjection mockProjection = mock(TaskSummaryProjection.class);
+        Page<TaskSummaryProjection> expectedPage = new PageImpl<>(List.of(mockProjection));
+
+        ArgumentCaptor<Specification<Task>> specCaptor = ArgumentCaptor.forClass(Specification.class);
+
+        given(taskRepository.findAllSummariesBy(any(Specification.class), eq(pageable))).willReturn(expectedPage);
+
+        // Act
+        Page<TaskSummaryProjection> result = taskService.findAll(currentUserId, taskFilter, pageable);
+
+        // Asserts
+        assertThat(result).isEqualTo(expectedPage);
+        then(taskRepository).should().findAllSummariesBy(specCaptor.capture(), eq(pageable));
+        Specification<Task> capturedSpec = specCaptor.getValue();
+
+        Root<Task> root = mock(Root.class, RETURNS_DEEP_STUBS);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        CriteriaBuilder cb = mock(CriteriaBuilder.class, RETURNS_DEEP_STUBS);
+
+        capturedSpec.toPredicate(root, query, cb);
+        then(cb).should().equal(any(), eq(currentUserId));
+        then(root).should(never()).join(anyString());
+        then(cb).should(never()).equal(any(), eq("  "));
     }
 }
