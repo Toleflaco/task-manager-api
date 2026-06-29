@@ -2,6 +2,8 @@ package com.mtole.taskmanager.categories;
 
 import com.mtole.taskmanager.categories.dto.CategoryCreateRequest;
 import com.mtole.taskmanager.categories.events.CategoryCreatedEvent;
+import com.mtole.taskmanager.categories.events.CategoryDeletedEvent;
+import com.mtole.taskmanager.categories.events.CategoryUpdatedEvent;
 import com.mtole.taskmanager.common.ResourceNotFoundException;
 import com.mtole.taskmanager.tasks.TaskMapper;
 import com.mtole.taskmanager.tasks.TaskRepository;
@@ -11,6 +13,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -29,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.inOrder;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CategoryService")
@@ -177,7 +181,86 @@ public class CategoryServiceTest {
 
         // Then (efecto secundario)
         then(applicationEventPublisher).shouldHaveNoInteractions();
+    }
 
+    @Test
+    @DisplayName("updates category and publishes category update when category exists ")
+    void update_withExistingCategory_updatesCategoryAndPublishesUpdatedEvent() {
+
+        // Arrange
+        Long currentUserId = 1L;
+        Long categoryId = 1L;
+        Category existingCategory = aCategory().withId(categoryId).build();
+        CategoryCreateRequest request = new CategoryCreateRequest("Category name", null);
+
+        given(categoryRepository.findByIdAndUserId(categoryId,currentUserId)).willReturn(Optional.of(existingCategory));
+        given(categoryRepository.save(existingCategory)).willReturn(existingCategory);
+
+        // Act
+        Category result = categoryService.update(categoryId, request, currentUserId);
+
+        // Asserts
+        assertThat(result).isSameAs(existingCategory);
+        then(categoryMapper).should().updateFromRequest(request,existingCategory);
+
+        ArgumentCaptor<CategoryUpdatedEvent> argumentCaptor = ArgumentCaptor.forClass(CategoryUpdatedEvent.class);
+        then(applicationEventPublisher).should().publishEvent(argumentCaptor.capture());
+        CategoryUpdatedEvent updatedEvent = argumentCaptor.getValue();
+
+        assertThat(updatedEvent.categoryId()).isEqualTo(existingCategory.getId());
+        assertThat(updatedEvent.userId()).isEqualTo(currentUserId);
+
+    }
+
+    @Test
+    @DisplayName("returns false and publishes no event when category does not exist")
+    void deleteById_withNonExistingCategory_returnsFalseAndPublishesNoEvent() {
+
+        // Arrange
+        Long currentUserId = 1L;
+        Long categoryId = 99L;
+
+        given(categoryRepository.findByIdAndUserId(categoryId, currentUserId)).willReturn(Optional.empty());
+
+        // Act
+        boolean result = categoryService.deleteById(categoryId, currentUserId);
+
+        // Asserts
+
+        assertThat(result).isFalse();
+        then(applicationEventPublisher).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("deletes category by id returns true and publishes delete event when category exists")
+    void deleteById_withExistingCategory_deletesCategoryAndPublishesDeletedEvent() {
+
+        // Arrange
+        Long currentUserId = 1L;
+        Long categoryId = 99L;
+        Category existingCategory = aCategory().withId(categoryId).build();
+
+        given(categoryRepository.findByIdAndUserId(categoryId, currentUserId)).willReturn(Optional.of(existingCategory));
+
+        // Act
+        boolean result = categoryService.deleteById(categoryId, currentUserId);
+
+        // Asserts
+
+        assertThat(result).isTrue();
+        InOrder inOrder = inOrder(taskRepository,categoryRepository);
+        inOrder.verify(taskRepository).disassociateFromCategory(categoryId);
+        inOrder.verify(categoryRepository).delete(existingCategory);
+
+
+
+        ArgumentCaptor<CategoryDeletedEvent> argumentCaptor = ArgumentCaptor.forClass(CategoryDeletedEvent.class);
+        then(applicationEventPublisher).should().publishEvent(argumentCaptor.capture());
+        CategoryDeletedEvent deletedEvent = argumentCaptor.getValue();
+
+        assertThat(deletedEvent.categoryId()).isEqualTo(existingCategory.getId());
+        assertThat(deletedEvent.userId()).isEqualTo(currentUserId);
+        assertThat(deletedEvent.name()).isEqualTo(existingCategory.getName());
 
     }
 }
