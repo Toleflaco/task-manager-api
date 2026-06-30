@@ -5,7 +5,6 @@ import com.mtole.taskmanager.categories.events.CategoryCreatedEvent;
 import com.mtole.taskmanager.categories.events.CategoryDeletedEvent;
 import com.mtole.taskmanager.categories.events.CategoryUpdatedEvent;
 import com.mtole.taskmanager.common.ResourceNotFoundException;
-import com.mtole.taskmanager.tasks.TaskMapper;
 import com.mtole.taskmanager.tasks.TaskRepository;
 import com.mtole.taskmanager.users.User;
 import com.mtole.taskmanager.users.UserRepository;
@@ -18,6 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -162,6 +162,30 @@ public class CategoryServiceTest {
         assertThat(publishedEvent.name()).isEqualTo(nameCategory);
         assertThat(publishedEvent.userId()).isEqualTo(currentUserId);
 
+    }
+
+    @Test
+    @DisplayName("does not publish event when repository save fails")
+    void create_whenRepositorySaveFails_doesNotPublishEvent(){
+
+        // Arrange
+        Long currentUserId = 1L;
+        Long categoryId = 1L;
+        String nameCategory = "nameCategory";
+        User existingUser = aUser().withId(currentUserId).build();
+        Category category = aCategory().withId(categoryId).withName(nameCategory).build();
+        CategoryCreateRequest request = new CategoryCreateRequest(nameCategory, null);
+
+        given(categoryMapper.toEntity(request)).willReturn(category);
+        given(userRepository.getReferenceById(currentUserId)).willReturn(existingUser);
+        given(categoryRepository.save(category)).willThrow(new DataIntegrityViolationException("constraint violation in test"));
+
+        // Act + Asserts
+        assertThatThrownBy(() -> categoryService.create(request, currentUserId))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        // then (efecto secundario)
+        then(applicationEventPublisher).shouldHaveNoInteractions();
     }
 
     @Test
