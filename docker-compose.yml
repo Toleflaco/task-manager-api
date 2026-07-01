@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:14
+    container_name: task-manager-postgres
+    environment:
+      POSTGRES_DB: task_manager
+      POSTGRES_USER: task_manager_app
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U task_manager_app -d task_manager"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: task-manager-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_URL: jdbc:postgresql://postgres:5432/task_manager
+      DB_USERNAME: task_manager_app
+      DB_PASSWORD: ${DB_PASSWORD}
+      MONGODB_PASSWORD: ${MONGODB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "8081:8081"
+volumes:
+  postgres_data:
