@@ -1,6 +1,8 @@
 # Task Manager API
 
-**Java 21 · Spring Boot 4 · Maven · Spring Security · JWT · OpenAPI**
+[![CI](https://github.com/Toleflaco/task-manager-api/actions/workflows/ci.yml/badge.svg)](https://github.com/Toleflaco/task-manager-api/actions/workflows/ci.yml)
+
+**Java 21 · Spring Boot 4 · PostgreSQL · MongoDB · Docker · Spring Security · JWT · OpenAPI**
 
 A REST API for managing personal tasks, organized by user and category.
 It is the working project of my self-taught Java backend learning roadmap,
@@ -15,19 +17,30 @@ short-lived access tokens, opaque refresh tokens with single-use rotation
 and reuse detection, and rate limiting on `/auth/login` to defend against
 brute force and credential stuffing.
 
-Persistence is currently in-memory. The design is structured so that
-swapping the repositories for JPA-backed implementations in Phase 6
-requires no changes to services or controllers.
+Persistence is polyglot: PostgreSQL for transactional data (users, tasks,
+categories), MongoDB for the activity audit log. The full application is
+containerized with a multi-stage Dockerfile and orchestrated locally with
+Docker Compose, so a fresh clone runs end-to-end with a single command.
+Continuous integration runs on GitHub Actions on every push and pull request.
 
 ## Tech stack
 
 - **Java 21** — modern language features (records, pattern matching, virtual threads support).
 - **Spring Boot 4.0.6** — application framework and dependency injection.
+- **Spring Data JPA + Hibernate 6** — ORM, JPA Specifications, entity graphs, optimistic locking.
+- **PostgreSQL 14** — transactional store for users, tasks, categories.
+- **Flyway** — versioned schema migrations, `ddl-auto: validate` in every environment.
+- **Spring Data MongoDB** — audit log persistence (`activity_events` collection).
+- **MongoDB Atlas M0** — managed MongoDB (AWS Ireland) for the audit log.
 - **Spring Security 6** — authentication and authorization infrastructure.
 - **jjwt 0.12.6** — JWT signing (HMAC-SHA256) and verification.
 - **Bucket4j 8.10.1** — token-bucket rate limiting on `/auth/login`.
 - **BCrypt** — password hashing.
-- **Maven** — build and dependency management.
+- **Docker + Docker Compose** — multi-stage build (Temurin JDK builder + JRE runtime), non-root user, orchestrated local environment with persistent volume.
+- **GitHub Actions** — CI pipeline running `./mvnw verify` on push and pull request, with Maven cache and test artifacts.
+- **JaCoCo 0.8.12** — code coverage with per-package quality gate on business packages.
+- **JUnit 5 + Mockito + AssertJ** — unit tests with BDDMockito style; `ArgumentCaptor`, `InOrder`, and Spring Data projection mocking patterns established.
+- **Maven** — build and dependency management via wrapper.
 - **MapStruct 1.6.3** — compile-time DTO ↔ entity mapping with strict `ReportingPolicy.ERROR` for fail-fast on field changes.
 - **springdoc-openapi 3.0.3** — interactive API documentation via Swagger UI.
 - **SLF4J + Logback** — structured logging with MDC for per-request correlation IDs.
@@ -54,43 +67,67 @@ The full rationale, trade-offs accepted and conditions under which the
 decision would be revisited are documented in
 [`docs/adr-001-polyglot-persistence.md`](docs/adr-001-polyglot-persistence.md).
 
+Testing strategy is layered — one tool per layer, matched to that layer's
+responsibility. The rationale is documented in
+[`docs/adr-002-layered-testing-strategy.md`](docs/adr-002-layered-testing-strategy.md).
+
 
 
 ## Getting started
 
+The recommended way to run the application is with Docker Compose. It
+brings up PostgreSQL and the API in a single command, on any machine
+with Docker installed, with no local Java or PostgreSQL required.
+
 ### Requirements
 
-- Java 21
-- Maven 3.9+
-- A JWT signing secret exported as an environment variable
+- Docker Desktop (or Docker Engine on Linux) with Docker Compose v2.
+- A MongoDB Atlas connection (or any reachable MongoDB instance).
+- Three environment variables exported in the shell that runs Compose:
+    - `DB_PASSWORD` — password for the containerized PostgreSQL user.
+    - `MONGODB_PASSWORD` — password for the MongoDB Atlas user.
+    - `JWT_SECRET` — Base64-encoded HMAC-SHA256 secret, at least 32 bytes after decoding. Generate one with:
+      ```bash
+      export JWT_SECRET=$(openssl rand -base64 48)
+      ```
 
-### Configure the JWT secret
+The app fails fast at startup if `JWT_SECRET` is missing or too short
+(minimum required by HS256 per JWA RFC 7518).
 
-The application requires a Base64-encoded HMAC-SHA256 secret. Generate one and
-export it before running the app:
-
-```bash
-export JWT_SECRET=$(openssl rand -base64 48)
-```
-
-The secret must be at least 32 bytes after decoding (the app fails fast at
-startup otherwise — this is the minimum required by HS256 per JWA RFC 7518).
-
-### Run
+### Run with Docker Compose
 
 ```bash
 git clone https://github.com/Toleflaco/task-manager-api.git
 cd task-manager-api
+docker compose up --build
+```
+
+The first build compiles the app inside a multi-stage Dockerfile
+(~1–2 min); subsequent builds are cached (~30s). PostgreSQL data is
+persisted in a Docker-managed volume (`postgres_data`) so it survives
+container recreation.
+
+The API starts on `http://localhost:8081` and connects automatically
+to the containerized PostgreSQL and to MongoDB Atlas.
+
+### Run without Docker (fallback)
+
+If you already have Java 21 and PostgreSQL 14 installed locally:
+
+```bash
 ./mvnw spring-boot:run
 ```
 
-The API starts on `http://localhost:8081`.
+The `application-dev.yml` profile defaults to `localhost:5432` for
+PostgreSQL when the Compose-injected `DB_URL` and `DB_USERNAME` are
+absent, so the same codebase runs either way with no configuration
+changes.
 
 ### Explore the API
 
 - **Swagger UI**: http://localhost:8081/swagger-ui.html
 - **OpenAPI spec**: http://localhost:8081/v3/api-docs
-- **Health check**: http://localhost:8081/actuator/health
+- **Health check**: http://localhost:8081/actuator/health (requires authentication)
 
 ## API Endpoints
 
@@ -136,6 +173,13 @@ in the `Authorization: Bearer <token>` header. See the
 | `POST` | `/tasks/{id}/cancel` | Mark task as cancelled | Required |
 | `DELETE` | `/tasks/{id}` | Delete own task | Required |
 
+### Activity (audit log)
+
+| Method | Path | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/me/activity` | List own activity events (paginated, filterable by date range and action) | Required |
+| `GET` | `/me/activity/stats` | Aggregated event counts grouped by action over a date range (`$facet` pipeline) | Required |
+
 > Full request/response schemas and examples are available via Swagger UI at
 > `http://localhost:8081/swagger-ui.html`.
 
@@ -177,9 +221,9 @@ information about the existence of resources owned by other users.
 
 ### Package-by-feature
 
-The codebase is organized by feature (`users`, `categories`, `tasks`, `auth`),
-not by technical layer (`controllers`, `services`, `repositories`). Each
-feature is self-contained, including its own DTOs and mapper. Cross-cutting
+The codebase is organized by feature (`users`, `categories`, `tasks`, `auth`,
+`activity`), not by technical layer (`controllers`, `services`, `repositories`).
+Each feature is self-contained, including its own DTOs and mapper. Cross-cutting
 concerns live in `common` (`RequestIdFilter`, `GlobalExceptionHandler`,
 `PagedResponse`) or `security` (filters, JWT, rate limiting).
 
@@ -355,7 +399,7 @@ parameters, not methods.
 Entities are mutable classes because they evolve (a task gets completed,
 its status changes; a refresh token gets revoked). Records would force
 creating a new instance on every change, which is unnecessary friction for
-in-memory and future JPA-managed entities.
+JPA-managed entities.
 
 ### MapStruct over Lombok or manual mapping
 
@@ -413,24 +457,113 @@ Write operations log intent before and outcome after (`Creating task...` →
 `Task created with id=42`). Read operations are not logged to avoid noise.
 Sensitive fields (passwords, raw tokens) are never logged.
 
-### In-memory persistence (current) — JPA-ready (Phase 6)
+### JPA-backed persistence with Flyway-owned schema
 
-Repositories are interfaces with in-memory implementations
-(`InMemoryUserRepository`, `InMemoryTaskRepository`, etc.) using
-`ConcurrentHashMap` and `AtomicLong`. The `InMemoryRefreshTokenRepository`
-uses two separate `AtomicLong` counters — one for entity id, one for
-`familyId` — to keep semantic boundaries that will map naturally to
-separate columns in JPA.
+All entities (`User`, `Category`, `Task`, `RefreshToken`) are persisted
+through Spring Data JPA with Hibernate as the provider. The schema is
+owned by Flyway migrations (V1–V8) and Hibernate is configured with
+`ddl-auto: validate` in every environment — the ORM never modifies the
+schema at runtime.
 
-The contract of every repository method is **structurally compatible** with
-its future JPA equivalent. For example:
+Key patterns applied across the persistence layer:
 
-- `findByIdAndUserId(Long, Long)` → maps directly to a Spring Data derived query.
-- `deleteAllByUserId(Long)` → same.
-- `revokeFamily(Long)` → will become a `@Modifying @Query` update statement.
+- **Soft delete** via `@SQLDelete` + `@SQLRestriction` with a `deleted_at`
+  column, so deleted rows are not returned by any read path without
+  developer opt-in.
+- **JPA auditing** via `@CreatedDate` / `@LastModifiedDate` /
+  `@CreatedBy` / `@LastModifiedBy`, backed by a `SecurityAuditorAware`
+  that reads the authenticated user id from the `SecurityContext`.
+- **Optimistic locking** via `@Version` on every entity, with explicit
+  `OptimisticLockingFailureException` handling in the service layer
+  (Hibernate ignores manual `setVersion()` on managed entities, so the
+  check has to be reasserted programmatically before save).
+- **JPA Specifications** with `JpaSpecificationExecutor` for dynamic
+  filtering on `GET /tasks`.
+- **Interface-based and class-based projections** for read-only queries
+  that don't need full entity hydration.
+- **`@EntityGraph`** to control fetch semantics (LEFT vs INNER JOIN)
+  and eliminate N+1 patterns where they were detected.
+- **`open-in-view: false`** — the anti-pattern is disabled from day one
+  to force explicit transaction boundaries and catch N+1 problems early.
 
-Migrating to JPA in Phase 6 means replacing the implementation class, not
-the interface — and not touching any service or controller.
+### Activity log as an event-driven side stream
+
+Domain events (task created, updated, deleted, state transition; category
+created, updated, deleted) are published via Spring's
+`ApplicationEventPublisher` from `TaskService` and `CategoryService`.
+An `ActivityEventListener` with seven `@EventListener` methods subscribes
+to these events and writes an `ActivityEvent` document to MongoDB.
+
+Writes run synchronously inside the JPA transaction of the publisher — a
+failed audit write rolls back the business operation. This choice trades
+maximum throughput for the strongest available consistency between the
+transactional store and the audit stream at the current scale; the
+upgrade path (transactional outbox) is documented in ADR-001.
+
+The `ActivityEvent` model uses `Map<String, Object>` for its `before` /
+`after` snapshots. Each event type stores different fields without
+requiring a schema migration — the flexibility MongoDB provides for this
+shape is exactly the argument for using it here.
+
+### Testing strategy
+
+The testing strategy is layered — one tool per layer. Full rationale in
+[ADR-002](docs/adr-002-layered-testing-strategy.md).
+
+- **Service layer**: unit tests with JUnit 5 and Mockito. Business rules,
+  orchestration between collaborators, and events emitted are verified
+  with mocked dependencies. Established patterns include
+  `ArgumentCaptor<Specification<Task>>`, `PageImpl` for `Page<T>`,
+  Spring Data projection interface mocking, `InOrder` for verifying
+  ordered interactions, and BDDMockito syntax throughout
+  (`given()` / `then()`).
+- **Mapper layer**: pure-function unit tests. Mappers are instantiated via
+  `Mappers.getMapper(...)` and asserted directly against known inputs.
+  No mocks — mocking a mapper would verify Mockito, not the transformation.
+- **Repository layer**: integration tests with Testcontainers running
+  PostgreSQL. Exercises real SQL, constraints, cascades, and entity
+  mapping. *Planned for Phase 8.5.*
+- **Controller layer**: end-to-end tests with `MockMvc`. Route wiring,
+  JSON (de)serialization, `ProblemDetail` payloads, security filter
+  behaviour, and HTTP status codes. *Planned for Phase 8.5.*
+
+JaCoCo is configured with a per-package quality gate on business
+packages (`tasks`, `categories`, `auth`): LINE ≥ 0.85, BRANCH ≥ 0.80.
+`haltOnFailure=false` while Phase 8.5 is pending; will flip to `true`
+once controller and repository tests are in.
+
+### Containerization and CI/CD
+
+The application is packaged with a **multi-stage Dockerfile**:
+
+- **Builder stage** — `eclipse-temurin:21-jdk-jammy`, runs the Maven
+  Wrapper to produce the `.jar`. The `pom.xml` is copied before `src/`
+  and `dependency:go-offline` runs in a separate layer, so Maven
+  dependencies are cached across builds and only re-downloaded when
+  `pom.xml` changes.
+- **Runtime stage** — `eclipse-temurin:21-jre-jammy`, contains only the
+  JRE and the compiled `.jar`. A non-root user (`appuser`, UID 1001,
+  shell `nologin`) owns the process. `ENTRYPOINT` uses exec form so
+  Java runs as PID 1 and receives `SIGTERM` directly on `docker stop`,
+  allowing Spring's shutdown hook to run.
+
+Final image weight: ~166 MB. Compilation tools and sources are not
+present in the runtime image.
+
+`docker-compose.yml` orchestrates the API alongside a `postgres:14`
+container with a healthcheck (`pg_isready`) and a Docker-managed volume
+(`postgres_data`) for persistence. `depends_on: condition:
+service_healthy` prevents the API from starting until PostgreSQL accepts
+connections. Configuration is externalized via environment variables
+(`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `MONGODB_PASSWORD`,
+`JWT_SECRET`) using the `${VAR:default}` syntax in `application-dev.yml`,
+so the same image runs against a local container or a managed database
+with only the environment changing.
+
+**GitHub Actions** runs the CI pipeline on every push to `main` and on
+every pull request: checkout, JDK 21 Temurin setup with Maven cache,
+`./mvnw verify` (compile, test, JaCoCo check), and upload of test
+reports as artifacts. Runner pinned to `ubuntu-22.04` for stability.
 
 ## Roadmap
 
@@ -448,21 +581,45 @@ single-use rotation and reuse detection, rate limiting with Bucket4j,
 `X-User-Id` simulation. OAuth 2.0 / OpenID Connect studied conceptually
 and documented as out-of-scope for this project's threat model.
 
-### 🔜 Phase 6 — Persistence (next)
+### ✅ Phase 6 — JPA persistence (complete)
 
-Replace the in-memory repositories with JPA-backed implementations:
+Migration of all four entities to Spring Data JPA + PostgreSQL, Flyway
+V1–V8 migrations, soft delete with `@SQLDelete` / `@SQLRestriction`,
+JPA auditing, optimistic locking with `@Version`, JPA Specifications,
+projections, `@EntityGraph`, N+1 detection and resolution,
+bidirectionality decisions locked per relationship.
 
-- Hibernate as the JPA provider.
-- PostgreSQL for production, H2 for tests.
-- Flyway for schema migrations.
-- `@Transactional` boundaries on multi-step service operations (notably the
-  cascade in `UserService.deleteById` and the family revocation in
-  `AuthService.refresh`).
-- Switch `findByIdAndUserId` to `existsByIdAndUserId` where existence is the
-  only concern (avoids hydrating entities unnecessarily).
+### ✅ Phase 6.5 — Polyglot persistence with MongoDB (complete)
 
-The repository interfaces are already shaped for this migration — no service
-or controller changes will be needed.
+Integration of MongoDB Atlas alongside PostgreSQL. Activity audit log
+as an event-driven side stream via `ApplicationEventPublisher` and
+`@EventListener`, with compound index `(userId asc, timestamp desc)`
+and `$facet` aggregation for stats. Architectural rationale in
+[ADR-001](docs/adr-001-polyglot-persistence.md).
+
+### ✅ Phase 8 — Testing (complete for unit layer)
+
+Unit test suite for `TaskService`, `CategoryService`, `TaskMapper`,
+`CategoryMapper`. JaCoCo configured with per-package quality gate on
+business packages. Layered testing strategy documented in
+[ADR-002](docs/adr-002-layered-testing-strategy.md).
+
+### ✅ Phase 9 — Containerization & CI/CD (complete)
+
+Multi-stage Dockerfile, `docker-compose.yml` with healthcheck and
+persistent volume, environment-based configuration, GitHub Actions
+pipeline running on push and pull request.
+
+### 🔜 Phase 8.5 — Integration & E2E tests (next)
+
+- Repository integration tests with `@DataJpaTest` + Testcontainers
+  (real PostgreSQL) — exercises JPA Specifications, projections,
+  cascades, constraints.
+- Controller end-to-end tests with `@WebMvcTest` + `MockMvc` — exercises
+  routing, `ProblemDetail` payloads, security filter behaviour, HTTP
+  status codes.
+- Flip JaCoCo `haltOnFailure` from `false` to `true` once new tests
+  bring the business packages above threshold.
 
 ### Future improvements
 
@@ -471,14 +628,10 @@ or controller changes will be needed.
 - **`DELETE /users/me`** as the idiomatic alternative to `DELETE /users/{id}`.
 - **Combined rate limiting** by IP + by email to address NAT false positives.
 - **Block escalation** (1h → 24h → weeks) after persistent failed logins.
-- **Audit log** for state transitions (who completed what, when).
-- **Test coverage**: the project currently has no automated tests; integration
-  tests with `@SpringBootTest` and Testcontainers will be added alongside
-  Phase 6.
-- **Containerization** with Docker for local and CI environments.
-- **CI pipeline** with GitHub Actions (build, lint, test).
-- **Per-environment configuration** via `application-dev.yml` and
-  `application-prod.yml` with active profile.
+- **Transactional outbox** for the audit log if inconsistency between
+  PostgreSQL and MongoDB becomes observable at scale.
+- **Publish Docker image to GHCR** in the CI pipeline.
+- **Per-environment configuration** for a `prod` profile alongside `dev`.
 
 ## Author
 
