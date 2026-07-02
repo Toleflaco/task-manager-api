@@ -635,7 +635,7 @@ pipeline running on push and pull request.
 
 ## Author
 
-**Tole** ([@Toleflaco](https://github.com/Toleflaco))
+**Manuel Toledano** ([@Toleflaco](https://github.com/Toleflaco))
 
 Self-taught backend developer following a structured Java learning roadmap.
 This project is the work-in-progress of that journey.
