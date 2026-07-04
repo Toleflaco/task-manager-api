@@ -12,7 +12,7 @@ public class SecurityAuditorAware implements AuditorAware<Long> {
     @Override
     public Optional<Long> getCurrentAuditor() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if  (auth == null && !auth.isAuthenticated()) {
+        if (auth == null || !auth.isAuthenticated()) {
             return Optional.empty();
         }
         if (!(auth.getPrincipal() instanceof Long userId)) {
