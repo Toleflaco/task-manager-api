@@ -205,6 +205,9 @@
                             <goal>check</goal>
                         </goals>
                         <configuration>
+                            <!-- haltOnFailure kept false until coverage reaches honest thresholds.
+                                Do not flip without also raising Controller and category-service
+                                coverage. See ADR-002. -->
                             <haltOnFailure>false</haltOnFailure>
                             <rules>
                                 <rule>
