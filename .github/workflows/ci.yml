@@ -24,7 +24,7 @@ jobs:
           cache: 'maven'
 
       - name: Build and test
-        run: ./mvnw verify -B
+        run: ./mvnw clean verify -B
 
       - name: Publish test reports
         if: always()
