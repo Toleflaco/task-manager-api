@@ -1,24 +1,31 @@
 package com.mtole.taskmanager.tasks;
 
+import com.mtole.taskmanager.categories.Category;
 import com.mtole.taskmanager.config.TestAuditorConfig;
 import com.mtole.taskmanager.users.User;
+import org.assertj.core.api.SoftAssertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.BeanRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.jpa.domain.Specification;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.assertj.core.api.SoftAssertions;
 
-
+import java.util.List;
 import java.util.Optional;
 
+import static com.mtole.taskmanager.categories.CategoryTestDataBuilder.aCategory;
 import static com.mtole.taskmanager.config.TestAuditorConfig.TEST_AUDITOR_ID;
+import static com.mtole.taskmanager.tasks.TaskSpecifications.*;
+import static com.mtole.taskmanager.tasks.TaskStatus.COMPLETED;
+import static com.mtole.taskmanager.tasks.TaskStatus.PENDING;
 import static com.mtole.taskmanager.tasks.TaskTestDataBuilder.aTask;
 import static com.mtole.taskmanager.users.UserTestDataBuilder.aUser;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,6 +87,77 @@ class TaskRepositoryIT {
             softly.assertThat(foundTask.get().getCreatedBy()).isEqualTo(TEST_AUDITOR_ID);
             softly.assertThat(foundTask.get().getLastModifiedBy()).isEqualTo(TEST_AUDITOR_ID);
             softly.assertThat(foundTask.get().getVersion()).isEqualTo(0L);
+        });
+    }
+
+    @Test
+    @DisplayName("finds task with user and status spec")
+    void findAll_withUserAndStatusSpec_returnsOnlyMatchingTasks() {
+
+        // Arrange
+        User user1 = aUser().withEmail("u1@example.com").build();
+        entityManager.persistAndFlush(user1);
+        User user2 = aUser().withEmail("u2@example.com").build();
+        entityManager.persistAndFlush(user2);
+        Task t1 = aTask().withUser(user1).withStatus(PENDING).withTitle("target").build();
+        Task t2 = aTask().withUser(user1).withStatus(COMPLETED).withTitle("wrong-status").build();
+        Task t3 = aTask().withUser(user2).withStatus(PENDING).withTitle("wrong-user").build();
+
+        taskRepository.saveAndFlush(t1);
+        taskRepository.saveAndFlush(t2);
+        taskRepository.saveAndFlush(t3);
+        entityManager.clear();
+
+        // Act
+        Specification<Task> spec = byUserId(user1.getId()).and(byStatus(PENDING));
+        List<Task> result = taskRepository.findAll(spec);
+
+        // Asserts
+        SoftAssertions.assertSoftly(softly -> {
+            softly.assertThat(result)
+                    .hasSize(1)
+                    .extracting(Task::getTitle)
+                    .containsExactly("target");
+
+        });
+    }
+
+    @Test
+    @DisplayName("finds task with user and status and category name spec")
+    void findAll_withUserStatusAndCategoryNameSpec_returnsOnlyMatchingTasks() {
+
+        // Arrange
+        User u1 = aUser().withEmail("u1@example.com").build();
+        User u2 = aUser().withEmail("u2@example.com").build();
+        entityManager.persistAndFlush(u1);
+        entityManager.persistAndFlush(u2);
+        Category c1 = aCategory().withName("work").withUser(u1).build();
+        Category c2 = aCategory().withName("personal").withUser(u1).build();
+        Category c3 = aCategory().withName("work").withUser(u2).build();
+        entityManager.persistAndFlush(c1);
+        entityManager.persistAndFlush(c2);
+        entityManager.persistAndFlush(c3);
+        Task t1 = aTask().withUser(u1).withStatus(PENDING).withCategory(c1).withTitle("target").build();
+        Task t2 = aTask().withUser(u1).withStatus(COMPLETED).withCategory(c2).withTitle("wrong-category-name").build();
+        Task t3 = aTask().withUser(u2).withStatus(PENDING).withCategory(c3).withTitle("wrong-user").build();
+        Task t4 = aTask().withUser(u1).withStatus(PENDING).withCategory(c2).withTitle("wrong-category").build();
+
+        taskRepository.saveAndFlush(t1);
+        taskRepository.saveAndFlush(t2);
+        taskRepository.saveAndFlush(t3);
+        taskRepository.saveAndFlush(t4);
+        entityManager.clear();
+
+        // Act
+        Specification<Task> spec = byUserId(u1.getId()).and(byStatus(PENDING)).and(byCategoryName("work"));
+        List<Task> result = taskRepository.findAll(spec);
+
+        // Asserts
+        SoftAssertions.assertSoftly(softly -> {
+            softly.assertThat(result)
+                    .hasSize(1)
+                    .extracting(Task::getTitle)
+                    .containsExactly("target");
         });
     }
 }
