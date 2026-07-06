@@ -3,7 +3,9 @@ package com.mtole.taskmanager.tasks;
 import com.mtole.taskmanager.categories.Category;
 import com.mtole.taskmanager.config.TestAuditorConfig;
 import com.mtole.taskmanager.users.User;
+import jakarta.persistence.EntityManager;
 import org.assertj.core.api.SoftAssertions;
+import org.hibernate.annotations.processing.SQL;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.BeanRegistry;
@@ -159,5 +161,65 @@ class TaskRepositoryIT {
                     .extracting(Task::getTitle)
                     .containsExactly("target");
         });
+    }
+
+    @Test
+    @DisplayName("deletes task sets deleted at without removing row")
+    void deleteTask_setsDeletedAtWithoutRemovingRow() {
+        // Arrange
+        User u1 = aUser().withEmail("u1@example.com").build();
+        entityManager.persistAndFlush(u1);
+        Task t1 = aTask().withUser(u1).withStatus(PENDING).withTitle("target").build();
+        taskRepository.saveAndFlush(t1);
+        Long taskId = t1.getId();
+        entityManager.clear();
+
+        // Act
+        taskRepository.deleteById(t1.getId());
+        entityManager.flush();
+        // Asserts
+
+        // Assert 1 — la fila existe físicamente con deleted_at != null (nativeQuery)
+        Object deletedAt = entityManager.getEntityManager()
+                .createNativeQuery("SELECT deleted_at FROM tasks WHERE id = ?")
+                .setParameter(1, taskId)
+                .getSingleResult();
+
+        // Assert 2 — findById devuelve Optional.empty() por @SQLRestriction
+        Optional<Task> foundViaOrm = taskRepository.findById(taskId);
+
+        SoftAssertions.assertSoftly(softly -> {
+           softly.assertThat(deletedAt).isNotNull();
+            softly.assertThat(foundViaOrm).isEmpty();
+        });
+    }
+
+    @Test
+    @DisplayName("filters out soft-deleted tasks from findAll results")
+    void findAll_withSoftDeletedTask_excludesTaskFromResult() {
+        // Arrange
+        User u1 = aUser().withEmail("u1@example.com").build();
+        entityManager.persistAndFlush(u1);
+        Task t1 = aTask().withUser(u1).withStatus(PENDING).withTitle("target").build();
+        taskRepository.saveAndFlush(t1);
+        Task t2 = aTask().withUser(u1).withStatus(PENDING).withTitle("other").build();
+        taskRepository.saveAndFlush(t2);
+        entityManager.clear();
+        taskRepository.deleteById(t2.getId());
+        entityManager.flush();
+
+        //Act
+        Specification<Task> spec = byUserId(u1.getId());
+        List<Task> result = taskRepository.findAll(spec);
+
+        // Asserts
+        SoftAssertions.assertSoftly(softly -> {
+            softly.assertThat(result)
+                    .hasSize(1)
+                    .extracting(Task::getTitle)
+                    .containsExactly("target");
+        });
+
+
     }
 }
