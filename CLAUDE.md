@@ -352,3 +352,258 @@ src/main/resources/db/migration/
 | Punto de entrada | `com.mtole.taskmanager.TaskManagerApiApplication` |
 | Handler de errores | `com.mtole.taskmanager.common.GlobalExceptionHandler` |
 | Configuración seguridad | `com.mtole.taskmanager.security.SecurityConfig` |
+
+---
+
+## 11. Testing
+
+### 11.1 Unit tests (Fase 8)
+
+**Stack y convenciones generales**
+
+JUnit 5 + Mockito + AssertJ. La sintaxis de Mockito es siempre BDDMockito (`given(…).willReturn(…)`, `then(…).should(…)`). El stubbing se escribe únicamente cuando el valor de retorno se consume; no hay stubs de cortesía para silenciar interacciones no relevantes para el test.
+
+Naming de métodos: `scenarioUnderTest_expectedResult` (`saveTask_persistsTaskWithAuditingFieldsPopulated`, `deleteCategory_disassociatesTasksBeforeDelete`). Los tests relacionados se agrupan con `@Nested`. Los ficheros de referencia son `TaskServiceTest.java`, `CategoryServiceTest.java` y `TaskMapperTest.java`.
+
+**Test data builders**
+
+Hay un builder por entidad raíz: `UserTestDataBuilder`, `TaskTestDataBuilder`, `CategoryTestDataBuilder` y `RefreshTokenTestDataBuilder`. Todos exponen una static factory (`aUser()`, `aTask()`, `aCategory()`, `aRefreshToken()`), tienen defaults sensatos y son fluent:
+
+```java
+User user = aUser().withEmail("other@example.com").build();
+Task task  = aTask().withUser(user).withStatus(COMPLETED).build();
+```
+
+Los builders son código de test; no se cuentan en las métricas de JaCoCo ni deben tener tests propios.
+
+**Patrones clave en service tests**
+
+_ArgumentCaptor_ — se usa para capturar los argumentos que el service pasa a sus colaboradores y verificar su contenido sin necesidad de igualdad por referencia. Los usos habituales son eventos publicados (`ArgumentCaptor<TaskCreatedEvent>`) y `Specification<Task>` capturada antes de pasarla al repositorio:
+
+```java
+ArgumentCaptor<Specification<Task>> specCaptor = ArgumentCaptor.forClass(Specification.class);
+then(taskRepository).should().findAllSummariesBy(specCaptor.capture(), eq(pageable));
+Specification<Task> captured = specCaptor.getValue();
+```
+
+_RETURNS\_DEEP\_STUBS_ — `Root<Task>` y `CriteriaBuilder` se mockean con `RETURNS_DEEP_STUBS` para ejercer la lógica de una `Specification` directamente sin arrancar un contexto JPA:
+
+```java
+Root<Task> root = mock(Root.class, RETURNS_DEEP_STUBS);
+CriteriaBuilder cb = mock(CriteriaBuilder.class, RETURNS_DEEP_STUBS);
+```
+
+_InOrder_ — en `CategoryServiceTest` se verifica con `InOrder` que `taskRepository.disassociateFromCategory(categoryId)` se llama **antes** que `categoryRepository.delete(entity)`. Este orden es una invariante de integridad referencial: sin la disociación previa, las tareas vivas quedarían con una FK a una categoría borrada.
+
+```java
+InOrder inOrder = inOrder(taskRepository, categoryRepository);
+inOrder.verify(taskRepository).disassociateFromCategory(categoryId);
+inOrder.verify(categoryRepository).delete(existingCategory);
+```
+
+**Mapper tests**
+
+Los mappers se instancian directamente con `Mappers.getMapper(TaskMapper.class)`. Sin mocks, sin Spring, sin contexto. Es una instancia real del mapper generado por MapStruct: verifica la transformación, no un stub.
+
+**JaCoCo**
+
+La cobertura se mide con granularidad `PACKAGE`. Los tres packages en scope son `com.mtole.taskmanager.tasks`, `com.mtole.taskmanager.categories` y `com.mtole.taskmanager.auth`. Los umbrales son LINE ≥ 0.85 y BRANCH ≥ 0.80. `haltOnFailure=false` es deuda técnica consciente, documentada en `pom.xml`:
+
+> *"haltOnFailure kept false until coverage reaches honest thresholds. Do not flip without also raising Controller and category-service coverage. See ADR-002."*
+
+No se persigue cobertura en: null guards generados por MapStruct (`if (x == null) return null`), ramas finales simétricas del state machine de tasks, clases de configuración / `main`, ni `equals`/`hashCode` de records. El criterio es: una línea verde que no protege un contrato nuevo no vale la pena.
+
+---
+
+### 11.2 Integration tests de repositorio (Fase 8.5)
+
+**Stack y anotaciones del slice**
+
+```java
+@DataJpaTest
+@Testcontainers
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Import(TestAuditorConfig.class)
+class TaskRepositoryIT {
+
+    @Container
+    @ServiceConnection
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:14");
+    ...
+}
+```
+
+`@DataJpaTest` carga únicamente entidades JPA, repositorios Spring Data y la infraestructura JPA (EntityManager, transacciones). Excluye `@Component` normales y `@Configuration` del main. `@AutoConfigureTestDatabase(replace = Replace.NONE)` impide que Spring Boot reemplace el datasource por H2. `@ServiceConnection` en el contenedor le dice a Spring Boot que configure el datasource automáticamente a partir del `PostgreSQLContainer`, sin `@DynamicPropertySource`. Un contenedor por clase (campo `static`); el aislamiento entre tests se garantiza con rollback automático por método.
+
+**Nota de paquetes (Spring Boot 4.x)** — las importaciones difieren de Boot 3.x:
+
+| Clase | Paquete en Boot 4.x |
+|---|---|
+| `@DataJpaTest` | `org.springframework.boot.data.jpa.test.autoconfigure` |
+| `@AutoConfigureTestDatabase` | `org.springframework.boot.jdbc.test.autoconfigure` |
+| `TestEntityManager` | `org.springframework.boot.jpa.test.autoconfigure` |
+
+**Versión de Testcontainers**
+
+Testcontainers BOM 2.0.5 es el mínimo compatible con Docker Engine 29 (que requiere API 1.44+). La versión 1.20.4 no arrancaba con ese engine.
+
+**TestAuditorConfig**
+
+`@DataJpaTest` no carga la `AuditingConfig` del main. Sin auditing activo, cada `INSERT` sobre una entidad auditada falla con violación `NOT NULL` en `created_at`. La solución es una `@TestConfiguration` dedicada que activa `@EnableJpaAuditing` con beans locales:
+
+```java
+@TestConfiguration
+@EnableJpaAuditing(
+        auditorAwareRef = "testAuditorAware",
+        dateTimeProviderRef = "testDateTimeProvider"
+)
+public class TestAuditorConfig {
+
+    public static final Long TEST_AUDITOR_ID = 1L;
+
+    @Bean
+    public AuditorAware<Long> testAuditorAware() {
+        return () -> Optional.of(TEST_AUDITOR_ID);
+    }
+
+    @Bean
+    public DateTimeProvider testDateTimeProvider() {
+        return () -> Optional.of(OffsetDateTime.now(ZoneOffset.UTC));
+    }
+}
+```
+
+Sin `@Primary` (no hay beans del main con los que competir en el slice). Los nombres de bean (`testAuditorAware`, `testDateTimeProvider`) difieren deliberadamente de los del main (`securityAuditorAware`, `auditingDateTimeProvider`) para evitar colisiones si el contexto del test evolucionase. `TEST_AUDITOR_ID` es una constante pública reutilizable en los asserts para verificar `createdBy` y `lastModifiedBy`.
+
+**Verificación de soft delete**
+
+Los tests de soft delete combinan una native query para confirmar que la fila existe físicamente con `deleted_at != null`, y un `findById` para confirmar que `@SQLRestriction` la filtra:
+
+```java
+Object deletedAt = entityManager.getEntityManager()
+        .createNativeQuery("SELECT deleted_at FROM tasks WHERE id = ?")
+        .setParameter(1, taskId)
+        .getSingleResult();
+Optional<Task> foundViaOrm = taskRepository.findById(taskId);
+
+assertThat(deletedAt).isNotNull();
+assertThat(foundViaOrm).isEmpty();
+```
+
+**SecurityAuditorAware y el null-guard**
+
+El guard del `SecurityContext` usa `||`, no `&&`:
+
+```java
+if (auth == null || !auth.isAuthenticated()) {
+    return Optional.empty();
+}
+```
+
+Esta es la forma correcta: salir si el objeto es nulo _o_ si no está autenticado. Con `&&` la segunda condición evaluaría sobre un `auth` que podría ser `null`, lanzando `NullPointerException`.
+
+**Dev/CI parity**
+
+El comando es idéntico en local y en GitHub Actions: `./mvnw clean verify -B`. El runner es `ubuntu-22.04`, que tiene Docker preinstalado y arrancado por defecto; no se necesita ningún step adicional en el pipeline. Testcontainers arranca la imagen `postgres:14` (tag fijo) en ambos entornos: dos desarrolladores que clonen el repositorio y ejecuten el mismo comando obtienen el mismo resultado.
+
+Referencia: `docs/ADR-003 · Repository Integration Testing with @DataJpaTest and Testcontainers.md`.
+
+---
+
+## 12. Persistencia polyglot
+
+### Separación de stores
+
+El sistema usa dos bases de datos con responsabilidades disjuntas:
+
+| Store | Versión / tier | Datos |
+|---|---|---|
+| PostgreSQL | 14 | `users`, `tasks`, `categories`, `refresh_tokens` — datos transaccionales, relacionales, mutables |
+| MongoDB Atlas | M0 free tier (AWS Ireland) | `activity_events` — audit log append-only |
+
+La elección se basa en el patrón de acceso de cada workload: los datos transaccionales necesitan integridad referencial, joins y transacciones ACID multi-fila; el audit log es append-only, con payloads heterogéneos por tipo de evento y consultado casi exclusivamente por rango de fechas del usuario. Cada base de datos resuelve exactamente el problema para el que fue diseñada.
+
+### MongoConfig: workaround manual
+
+Spring Boot 4.0.6 + driver mongo 5.6.5 tiene un bug en la autoconfiguración: la URI llega al contexto pero no se aplica al cliente. Además, al construir el cliente manualmente, Spring Data pierde la conexión con `spring.data.mongodb.database` y cae en su fallback hardcoded `"test"`. Por eso `MongoConfig` declara dos beans explícitamente:
+
+```java
+@Configuration
+public class MongoConfig {
+
+    @Value("${spring.data.mongodb.uri}")
+    private String mongoUri;
+
+    @Bean
+    public MongoClient mongoClient() {
+        ConnectionString connectionString = new ConnectionString(mongoUri);
+        MongoClientSettings settings = MongoClientSettings.builder()
+                .applyConnectionString(connectionString)
+                .build();
+        return MongoClients.create(settings);
+    }
+
+    @Bean
+    public MongoDatabaseFactory mongoDatabaseFactory(MongoClient client) {
+        return new SimpleMongoClientDatabaseFactory(client, "taskmanager");
+    }
+}
+```
+
+Si en el futuro se actualiza Spring Boot o el driver Mongo y la autoconfiguración vuelve a funcionar correctamente, esta clase puede eliminarse y la URI inyectarse vía `spring.data.mongodb.uri` y la database vía `spring.data.mongodb.database` como es habitual.
+
+**Scanning de repositorios** — para que Spring Data no mezcle repositorios JPA y Mongo, `RepositoryScanConfig` declara `@EnableJpaRepositories(basePackages = …)` y `@EnableMongoRepositories(basePackages = …)` apuntando a paquetes disjuntos.
+
+### ActivityEvent como documento
+
+```java
+@Document(collection = "activity_events")
+@CompoundIndex(name = "userId_1_timestamp_-1", def = "{'userId': 1, 'timestamp': -1}")
+public class ActivityEvent {
+    @Id private String id;          // asignado por MongoDB al insertar
+    private Long userId;
+    private String action;          // String, no enum — ver nota abajo
+    private String resourceType;    // String, no enum — ver nota abajo
+    private Long resourceId;
+    private Map<String, Object> before;
+    private Map<String, Object> after;
+    private Instant timestamp;
+    ...
+}
+```
+
+`action` y `resourceType` son `String` en lugar de enum por una razón de forward compatibility: si en el futuro se renombra o elimina un tipo de acción, los documentos viejos en MongoDB siguen deserializándose correctamente. Un enum haría fallar la deserialización de cualquier evento cuyo valor ya no existiera en el código.
+
+`before` y `after` son `Map<String, Object>` porque cada tipo de acción guarda campos distintos. Aprovechar la naturaleza document-store de MongoDB elimina la necesidad de migraciones cuando se añade un nuevo tipo de evento.
+
+El documento es append-only e inmutable: no lleva @Version (no hay updates concurrentes que proteger) ni anotaciones de auditoría (el propio evento es el registro de auditoría).
+
+### Modelo event-driven síncrono
+
+El flujo es: service transaccional → `ApplicationEventPublisher.publishEvent(…)` → `@EventListener` en `ActivityEventListener` → `MongoRepository.save(event)`.
+
+El listener corre síncronamente dentro de la transacción JPA del publicador. Esto tiene una consecuencia importante: si la escritura en Mongo falla, la excepción se propaga y la transacción JPA hace rollback. No se confirma la operación de negocio sin confirmar también el audit log.
+
+La ventana de inconsistencia residual —Mongo escribe con éxito, luego el commit JPA falla— existe y es aceptada para la escala actual. El upgrade path si esta ventana se vuelve observable es el patrón transactional outbox.
+
+### Compound index y query pattern
+
+El índice `{'userId': 1, 'timestamp': -1}` cubre el query pattern dominante: *"dame la actividad de este usuario en este rango de fechas, ordenada de más reciente a más antigua"*. El `userId` viene siempre del JWT del request autenticado; no hay join con la tabla `users` en tiempo de lectura.
+
+### Endpoints de activity
+
+| Endpoint | Descripción |
+|---|---|
+| `GET /me/activity` | Listing paginado con Criteria dinámica (filtros opcionales por rango de fechas, tipo de acción, tipo de recurso) |
+| `GET /me/activity/stats` | Aggregation con pipeline `$facet` para contar eventos agrupados por `action` en un rango de fechas |
+
+### Trade-offs aceptados
+
+| Trade-off | Mitigación |
+|---|---|
+| Sin join a nivel de motor entre `users` y `activity_events` | `userId` desnormalizado en cada evento desde el JWT. Si se necesita el nombre del usuario en la respuesta, se hace una segunda query a PostgreSQL. |
+| Integridad referencial user→event no garantizada por el motor | Aceptado: un audit log debe preservar precisión histórica. Un hard delete de usuario no borra sus eventos; GDPR Right-to-Erasure se trataría con un proceso de anonimización separado. |
+| Ventana de inconsistencia pequeña entre los dos stores | Aceptada a la escala actual. Upgrade path: transactional outbox. |
+| Dos bases de datos que operar, respaldar y monitorizar | El coste operacional está explícitamente aceptado. La simplificación de cada modelo de datos compensa la superficie extra. |
+
+Referencia: `docs/adr-001-polyglot-persistence.md`.
