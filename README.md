@@ -643,3 +643,8 @@ This project is the work-in-progress of that journey.
 ## License
 
 This project is released under the MIT License. See [LICENSE](LICENSE) for details.
+
+
+## Session log
+
+Módulo Git en curso — Sesión 6 (remotos).
