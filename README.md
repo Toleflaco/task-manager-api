@@ -649,4 +649,7 @@ This project is released under the MIT License. See [LICENSE](LICENSE) for detai
 
 Módulo Git en curso — Sesión 6 (remotos).
 
+## Session log
+Módulo Git en curso — Sesión 6 (remotos).
 Local commit made without knowing about the GitHub web edit yet.
+Edited directly from GitHub web for Git module exercise.
