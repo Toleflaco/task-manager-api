@@ -72,3 +72,8 @@ management:
   health:
     mongodb:
       enabled: false
+
+aws:
+  s3:
+    presign:
+      download-ttl: 10m

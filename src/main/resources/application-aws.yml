@@ -28,6 +28,8 @@ jwt:
 aws:
   s3:
     bucket: toleflaco-task-manager-uploads-2026
+    presign:
+      download-ttl: 10m
 
 logging:
   level:
