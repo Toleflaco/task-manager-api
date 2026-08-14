@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Toleflaco/task-manager-api/actions/workflows/ci.yml/badge.svg)](https://github.com/Toleflaco/task-manager-api/actions/workflows/ci.yml)
 
-**Java 21 · Spring Boot 4 · PostgreSQL · MongoDB · Docker · Spring Security · JWT · OpenAPI**
+**Java 21 · Spring Boot 4 · PostgreSQL · MongoDB · AWS S3 · Docker · Spring Security · JWT · OpenAPI**
 
 A REST API for managing personal tasks, organized by user and category.
 It is the working project of my self-taught Java backend learning roadmap,
@@ -23,6 +23,16 @@ containerized with a multi-stage Dockerfile and orchestrated locally with
 Docker Compose, so a fresh clone runs end-to-end with a single command.
 Continuous integration runs on GitHub Actions on every push and pull request.
 
+File uploads are integrated with Amazon S3 via the AWS SDK for Java v2.
+Credentials are sourced from an EC2 Instance Profile through IMDSv2 —
+there are no static access keys anywhere in the codebase, in environment
+variables, or in configuration files. Downloads are served via S3
+presigned URLs so clients fetch objects directly from S3 with a
+time-bounded credential, without proxying binary payloads through the
+application. The deployed stack runs on AWS EC2 (Ubuntu 24.04) with
+PostgreSQL migrated to Amazon RDS, and S3 traffic routed through a VPC
+Endpoint Gateway to keep it on the AWS backbone.
+
 ## Tech stack
 
 - **Java 21** — modern language features (records, pattern matching, virtual threads support).
@@ -32,6 +42,9 @@ Continuous integration runs on GitHub Actions on every push and pull request.
 - **Flyway** — versioned schema migrations, `ddl-auto: validate` in every environment.
 - **Spring Data MongoDB** — audit log persistence (`activity_events` collection).
 - **MongoDB Atlas M0** — managed MongoDB (AWS Ireland) for the audit log.
+- **AWS SDK for Java v2** — `software.amazon.awssdk:s3` and `software.amazon.awssdk:s3-transfer-manager` for uploads; `S3Presigner` (declared as a separate Spring bean) for presigned URL generation.
+- **AWS EC2 Instance Profile via IMDSv2** — credentials resolved automatically by the SDK's default credential provider chain. No `aws-access-key-id`, `aws-secret-access-key`, or `AWS_PROFILE` anywhere in the codebase or runtime environment.
+- **Amazon RDS for PostgreSQL** — managed database in a private subnet, reached from EC2 through a security-group reference (not a CIDR range).
 - **Spring Security 6** — authentication and authorization infrastructure.
 - **jjwt 0.12.6** — JWT signing (HMAC-SHA256) and verification.
 - **Bucket4j 8.10.1** — token-bucket rate limiting on `/auth/login`.
@@ -46,8 +59,6 @@ Continuous integration runs on GitHub Actions on every push and pull request.
 - **SLF4J + Logback** — structured logging with MDC for per-request correlation IDs.
 - **Spring Boot Actuator** — health and metrics endpoints.
 - **Jakarta Validation** — request body validation via annotations.
-
-
 
 ## Architecture
 
@@ -71,8 +82,6 @@ Testing strategy is layered — one tool per layer, matched to that layer's
 responsibility. The rationale is documented in
 [`docs/adr-002-layered-testing-strategy.md`](docs/adr-002-layered-testing-strategy.md).
 
-
-
 ## Getting started
 
 The recommended way to run the application is with Docker Compose. It
@@ -84,12 +93,14 @@ with Docker installed, with no local Java or PostgreSQL required.
 - Docker Desktop (or Docker Engine on Linux) with Docker Compose v2.
 - A MongoDB Atlas connection (or any reachable MongoDB instance).
 - Three environment variables exported in the shell that runs Compose:
-    - `DB_PASSWORD` — password for the containerized PostgreSQL user.
-    - `MONGODB_PASSWORD` — password for the MongoDB Atlas user.
-    - `JWT_SECRET` — Base64-encoded HMAC-SHA256 secret, at least 32 bytes after decoding. Generate one with:
-      ```bash
-      export JWT_SECRET=$(openssl rand -base64 48)
-      ```
+  - `DB_PASSWORD` — password for the containerized PostgreSQL user.
+  - `MONGODB_PASSWORD` — password for the MongoDB Atlas user.
+  - `JWT_SECRET` — Base64-encoded HMAC-SHA256 secret, at least 32 bytes after decoding. Generate one with:
+
+    ```bash
+    export JWT_SECRET=$(openssl rand -base64 48)
+    ```
+
 
 The app fails fast at startup if `JWT_SECRET` is missing or too short
 (minimum required by HS256 per JWA RFC 7518).
@@ -172,6 +183,13 @@ in the `Authorization: Bearer <token>` header. See the
 | `POST` | `/tasks/{id}/complete` | Mark task as completed | Required |
 | `POST` | `/tasks/{id}/cancel` | Mark task as cancelled | Required |
 | `DELETE` | `/tasks/{id}` | Delete own task | Required |
+
+### Files (S3-backed)
+
+| Method | Path | Description | Auth |
+| --- | --- | --- | --- |
+| `POST` | `/files` | Upload a file to S3 (`multipart/form-data`, part name `file`). Returns the S3 object key. | Required |
+| `GET` | `/files/download-url?key={key}` | Generate an S3 presigned URL for direct client-side download. Response includes `key`, `url`, and `expiresAt` (ISO-8601). | Required |
 
 ### Activity (audit log)
 
@@ -431,17 +449,17 @@ All exceptions are caught by a single `@RestControllerAdvice`. Each handler
 returns a `ProblemDetail` (RFC 7807): consistent, machine-readable, and
 self-documenting via the `type` field.
 
-| Exception                             | HTTP Status                                                     |
-| ------------------------------------- | --------------------------------------------------------------- |
-| `ResourceNotFoundException`           | `404 Not Found`                                                 |
-| `MethodArgumentNotValidException`     | `400 Bad Request` (with `fields` listing all validation errors) |
-| `MissingRequestHeaderException`       | `400 Bad Request`                                               |
-| `MethodArgumentTypeMismatchException` | `400 Bad Request`                                               |
-| `BadCredentialsException`             | `401 Unauthorized` (login with wrong password)                  |
-| `InvalidRefreshTokenException`        | `401 Unauthorized` (refresh failures)                           |
-| `InvalidTaskStateException`           | `409 Conflict`                                                  |
-| `DuplicateEmailException`             | `409 Conflict` (registration with already-used email)           |
-| `Exception` (catch-all)               | `500 Internal Server Error`                                     |
+| Exception | HTTP Status |
+| --- | --- |
+| `ResourceNotFoundException` | `404 Not Found` |
+| `MethodArgumentNotValidException` | `400 Bad Request` (with `fields` listing all validation errors) |
+| `MissingRequestHeaderException` | `400 Bad Request` |
+| `MethodArgumentTypeMismatchException` | `400 Bad Request` |
+| `BadCredentialsException` | `401 Unauthorized` (login with wrong password) |
+| `InvalidRefreshTokenException` | `401 Unauthorized` (refresh failures) |
+| `InvalidTaskStateException` | `409 Conflict` |
+| `DuplicateEmailException` | `409 Conflict` (registration with already-used email) |
+| `Exception` (catch-all) | `500 Internal Server Error` |
 
 Rate-limit `429` responses are written directly by `RateLimitingFilter`
 because filter exceptions do not reach `@RestControllerAdvice`.
@@ -504,6 +522,84 @@ The `ActivityEvent` model uses `Map<String, Object>` for its `before` /
 `after` snapshots. Each event type stores different fields without
 requiring a schema migration — the flexibility MongoDB provides for this
 shape is exactly the argument for using it here.
+
+### File uploads to S3 with zero static credentials
+
+File upload is delegated to Amazon S3 rather than stored on the
+application server or in PostgreSQL. This decouples binary storage from
+the transactional store, keeps the application stateless, and avoids
+turning the database into a de-facto blob store.
+
+Credentials are resolved by the AWS SDK v2 default credential provider
+chain. In production the chain terminates at the **EC2 Instance Profile**
+attached to the host, which exposes rotating short-lived credentials via
+IMDSv2. The application code never touches an access key, a secret, or a
+profile name. There is no `AWS_ACCESS_KEY_ID` in the environment, no
+`~/.aws/credentials` on the instance, and no key material in the JAR or
+in the container image. The same code runs locally against a developer's
+`~/.aws/credentials` without any conditional path.
+
+Uploaded files are stored under a date-based S3 key layout
+(`yyyy/MM/dd/{uuid}-{safeName}`). The date prefix opens the door to
+lifecycle rules that auto-expire or transition old objects to cheaper
+storage classes without touching application code, and gives operators
+a natural chronological navigation of the bucket. The UUID guarantees
+per-object uniqueness even when two clients upload files with the same
+name at the same second.
+
+Filenames are sanitized against an explicit character whitelist:
+anything outside `[a-zA-Z0-9._-]` is replaced with a hyphen before the
+name reaches the S3 key. Null or blank filenames fall back to a fixed
+literal. Path separators, control characters, and non-ASCII payloads
+therefore cannot escape the intended prefix or inject unexpected key
+structure — the sanitizer runs upstream of the S3 client call, so a
+malicious filename never reaches the SDK.
+
+### Downloads via S3 presigned URLs, not proxied bytes
+
+The application does not proxy S3 downloads. When a client requests a
+file, it calls `GET /files/download-url?key={key}` and receives an S3
+presigned URL with a bounded TTL (externalized as
+`aws.s3.presign.download-ttl` in `application-aws.yml`). The client
+then fetches the object directly from S3.
+
+The trade-off accepted: presigned URLs shift access control from the
+application to a time-bounded signed credential. Anyone in possession of
+a valid URL can download the object until it expires. The TTL is
+therefore sized against the download-latency requirements of legitimate
+clients (minutes, not hours), and the URL is never logged or persisted.
+In exchange, the application avoids streaming binary payloads through
+its own JVM heap, its own network interface, and its own CPU — S3
+handles that at cloud scale.
+
+TTL enforcement was verified end-to-end: an expired URL returns HTTP
+403 from S3 directly, without the application being involved.
+
+### S3 traffic routed through a VPC Endpoint Gateway
+
+The EC2 subnet's route tables include a **VPC Endpoint Gateway** for S3
+(`com.amazonaws.eu-west-1.s3`). S3 API calls from the application
+resolve to a private target inside the AWS network and never traverse
+the public internet, without requiring a NAT Gateway.
+
+The mechanism is a route table entry `pl-<service> → vpce-<endpoint>`
+that AWS provisions automatically when the endpoint is attached to a
+route table. The destination is an **AWS-managed prefix list** — a
+dynamic set of the current S3 IP ranges for the region, maintained and
+updated by AWS without operator intervention. Coexistence with the
+pre-existing `0.0.0.0/0 → IGW` default route works by **longest prefix
+match**: S3-bound traffic matches the more specific prefix list and
+takes the endpoint, all other outbound traffic keeps using the
+internet gateway. The pattern is additive, not destructive.
+
+Two benefits taken: traffic stays inside AWS's network boundary —
+useful for compliance framings that ask "does customer data ever leave
+the AWS backbone?" the answer is no for S3 access from this
+application — and latency is lower and jitter narrower than the public
+route. Cost side: VPC Endpoint Gateways (available for S3 and
+DynamoDB) are free, unlike Interface Endpoints, which run as ENIs with
+private IPs in the subnet and charge per hour plus per GB processed.
+This choice adds security and performance without recurring cost.
 
 ### Testing strategy
 
@@ -610,6 +706,19 @@ Multi-stage Dockerfile, `docker-compose.yml` with healthcheck and
 persistent volume, environment-based configuration, GitHub Actions
 pipeline running on push and pull request.
 
+### ✅ Phase 9.5 — AWS deployment (complete)
+
+Application deployed on AWS EC2 (Ubuntu 24.04, `eu-west-1`) with
+PostgreSQL migrated to Amazon RDS (`db.t4g.micro`, private subnet,
+security-group-referenced access). File uploads integrated with Amazon
+S3 via AWS SDK for Java v2, using EC2 Instance Profile credentials
+sourced through IMDSv2 (no static keys anywhere in code, environment,
+or image). Downloads served via S3 presigned URLs with externalized
+TTL; TTL enforcement verified end-to-end (HTTP 403 from S3 after
+expiry). S3 traffic routed through a VPC Endpoint Gateway to keep it
+on the AWS backbone without traversing the public internet or
+requiring a NAT Gateway.
+
 ### 🔜 Phase 8.5 — Integration & E2E tests (next)
 
 - Repository integration tests with `@DataJpaTest` + Testcontainers
@@ -643,11 +752,3 @@ This project is the work-in-progress of that journey.
 ## License
 
 This project is released under the MIT License. See [LICENSE](LICENSE) for details.
-
-
-## Session log
-Módulo Git en curso — Sesión 6 (remotos).
-Local commit made without knowing about the GitHub web edit yet.
-Edited directly from GitHub web for Git module exercise.
-
-Prueba#####
