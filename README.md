@@ -1,6 +1,8 @@
 # Task Manager API
 [![CI](https://github.com/Toleflaco/task-manager-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Toleflaco/task-manager-api/actions/workflows/ci.yml)
-
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
+[![Spring Boot 4.0](https://img.shields.io/badge/Spring%20Boot-4.0-brightgreen.svg)](https://spring.io/projects/spring-boot)
 REST API para gestión de tareas con autenticación JWT, persistencia poliglota (PostgreSQL + MongoDB), y operaciones CRUD con filtering y pagination.
 
 ## Stack técnico
