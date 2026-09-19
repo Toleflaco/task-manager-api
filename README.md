@@ -1,4 +1,5 @@
 # Task Manager API
+[![CI](https://github.com/Toleflaco/task-manager-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Toleflaco/task-manager-api/actions/workflows/ci.yml)
 
 REST API para gestión de tareas con autenticación JWT, persistencia poliglota (PostgreSQL + MongoDB), y operaciones CRUD con filtering y pagination.
 
@@ -134,7 +135,7 @@ curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"Password123!"}'
 ```
-
+   
 Copia el token de la respuesta y úsalo:
 
 ```bash
